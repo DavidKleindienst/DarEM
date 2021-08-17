@@ -72,18 +72,16 @@ def correctTargetSize(targetSize):
     return targetSize
 
 def upscale_coordinates(coords,targetShape,currentShape):
-    if not coords:
+    if not coords or not currentShape:
         return coords
-    if not currentShape: 
-        return [[round(x),round(y)] for (x,y) in coords]
     currentShape = correctTargetSize(currentShape)
     if currentShape == targetShape:
-        return [[round(x),round(y)] for (x,y) in coords]
+        return coords
         
     yratio = targetShape[0] / currentShape[0]
     xratio = targetShape[1] / currentShape[1]
     
-    upscaled = [[round(xratio * x), round(yratio * y)] for (x,y) in coords]
+    upscaled = [[xratio * x, yratio * y] for (x,y) in coords]
     
     return upscaled
 
