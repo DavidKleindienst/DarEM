@@ -10,23 +10,25 @@ import tensorflow as tf
 import tensorflow.compat.v1 as tfv1
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 
 from object_detection.utils import dataset_util
 
-import utils
+from utils import utils
 
-def maketfRecordsFromConfig(config,filename,image_output_folder,downscale_targetSize,split_targetSize):
+def maketfRecordsFromConfig(config,filename,image_output_folder,downscale_targetSize=None,
+                            split_targetSize=None,eval_probability=0.15):
     if not os.path.isdir(image_output_folder):
         os.mkdir(image_output_folder)
    
-    trainName = filename+'_train.tfrecord'
-    evalName = filename+'_eval.tfrecord'
-    
-    eval_probability=0.15
-    
-    train_writer = tf.io.TFRecordWriter(trainName) #create a writer that'll store our data to disk
-    eval_writer = tf.io.TFRecordWriter(evalName)
+    if not eval_probability:
+        filename += '.tfrecord'
+        writer = tf.io.TFRecTFRecordWriter(filename)
+    else:
+        trainName = filename+'_train.tfrecord'
+        evalName = filename+'_eval.tfrecord'
+            
+        train_writer = tf.io.TFRecordWriter(trainName) #create a writer that'll store our data to disk
+        eval_writer = tf.io.TFRecordWriter(evalName)
     count = 0
     
     images = file2dict(config,',\t')
@@ -34,14 +36,15 @@ def maketfRecordsFromConfig(config,filename,image_output_folder,downscale_target
     routes = images['ROUTE']
     
     
-    #Find all duplicates of images    encoded_jpg_io = io.BytesIO(encoded_jpg)
+    #Find all duplicates of images  
     duplicates=[r for r in routes if r.endswith('_dupl')]
     #Get routes of the original images of these duplicates
     duplicated_images=list(set([r.replace('_dupl','') for r in duplicates]))
 
     for route in images['ROUTE']:
         
-        writer = eval_writer if random.random() < eval_probability else train_writer
+        if eval_probability:
+            writer = eval_writer if random.random() < eval_probability else train_writer
         
         if route in duplicates:
             continue #duplicates will be included when duplicated_images are processed
@@ -72,13 +75,14 @@ def maketfRecordsFromConfig(config,filename,image_output_folder,downscale_target
     writer.close()
     print(f"Wrote {count} elements to TFRecord")
 
-def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgroundIsWhite=True,downscale_targetSize=None,split_targetSize=None):
+def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgroundIsWhite=True,
+                           downscale_targetSize=None,split_targetSize=None,overlap=None):
     if backgroundIsWhite:
         npFunc=lambda x: 255*np.ones(x)
-        minmaxFunc = lambda x: np.min(x, 0)
+        minmaxFunc = lambda x: np.min(x, axis=0)
     else:
         npFunc = lambda x: np.zeros(x)
-        minmaxFunc = lambda x: np.max(x, 0)
+        minmaxFunc = lambda x: np.max(x, axis=0)
     img=cv2.cvtColor(cv2.imread(os.path.join(folder,imageFile)),cv2.COLOR_RGB2GRAY)
     if type(labelFile) is str:
         if os.path.isfile(os.path.join(folder,labelFile)):
@@ -90,7 +94,7 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
         
             
         masks = np.asarray([cv2.cvtColor(cv2.imread(r),cv2.COLOR_RGB2GRAY) if os.path.isfile(r) else npFunc(img.shape) for r in labelFiles])
-        demarc = minmaxFunc(masks)
+        demarc = minmaxFunc(masks)  #Pools the duplicates
        
     else:
         raise ValueError(f'Argument label file needs to be a filepath or list of filepaths. {labelFile} given.')
@@ -114,30 +118,37 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
     
 
     
-    if split_targetSize and split_targetSize<img.shape[0]:
-        num_splits = math.ceil(img.shape[0]/split_targetSize)
-        examples = []
-        count=1
-        for yn in range(num_splits):
-            for xn in range(num_splits):
-                y = img.shape[0]-1-split_targetSize if yn==num_splits-1 else yn * split_targetSize
-                x = img.shape[1]-1-split_targetSize if xn==num_splits-1 else xn * split_targetSize
+    # if split_targetSize and split_targetSize<img.shape[0]:
+    #     num_splits = math.ceil(img.shape[0]/split_targetSize)
+    #     examples = []
+    #     count=1
+    #     for yn in range(num_splits):
+    #         for xn in range(num_splits):
+    #             y = img.shape[0]-1-split_targetSize if yn==num_splits-1 else yn * split_targetSize
+    #             x = img.shape[1]-1-split_targetSize if xn==num_splits-1 else xn * split_targetSize
 
                 
-                img_split=img[y:y+split_targetSize,x:x+split_targetSize]
-                mask_split=mask[y:y+split_targetSize,x:x+split_targetSize]
-                suffix = f'_split_{count}_of_{num_splits*num_splits}'
-                jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
+    #             img_split=img[y:y+split_targetSize,x:x+split_targetSize]
+    #             mask_split=mask[y:y+split_targetSize,x:x+split_targetSize]
+    #             suffix = f'_split_{count}_of_{num_splits*num_splits}'
+    #             jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
                 
-                examples.append(getExampleFromImage(img_split, mask_split, jpgPath))
-                count += 1
+    #             examples.append(getExampleFromImage(img_split, mask_split, jpgPath))
+    #             count += 1
+    # else:
+    #     jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', '.jpg'))
+    #     return getExampleFromImage(img,mask,jpgPath)
+    
+    split_images = utils.splitImage(split_targetSize,img,overlap)
+    split_masks = utils.splitImage(split_targetSize,mask,overlap)
+    examples = []
+    for count, (split_img, split_mask) in enumerate(zip(split_images,split_masks)):
+        suffix = f'_split_{count+1}_of_{len(split_images)}'
+        jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
+        examples.append(getExampleFromImage(split_img, split_mask, jpgPath))
         
-        return examples
-                                
-                
-    else:
-        jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', '.jpg'))
-        return getExampleFromImage(img,mask,jpgPath)
+    return examples
+                                    
     
 def getExampleFromImage(img,mask,jpgPath):
 
@@ -245,6 +256,11 @@ def file2dict(filename,delimiter=','):
 
 #filename = 'example_cat.jpg'
 #image_format = b'jpg'
+
+
+
+
+
 
 if __name__=='__main__':
     if 1:

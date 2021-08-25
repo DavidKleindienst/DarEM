@@ -144,7 +144,8 @@ def fuseMasks(targetShape, images, overlap=0):
  
 def correctOverlap(overlap):
     #Makes overlap a ratio between 0 and 1 if a percentage was specified
-    
+    if overlap is None:
+        return 0
     if overlap > 1:
     #Probably percent
         if overlap > 100:

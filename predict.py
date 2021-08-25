@@ -6,13 +6,12 @@ Created on Tue Aug 10 15:09:59 2021
 @author: krasax
 """
 
-import os, cv2, json
+import os, cv2, json, time
 import argparse
 import numpy as np
 import tensorflow as tf
 from PIL import Image
 
-import time
 #from object_detection.utils import label_map_util
 from object_detection.utils import config_util
 from modifiedObjectDetection import model_builder
@@ -21,7 +20,7 @@ from modifiedObjectDetection import model_builder
 #matplotlib.use('module://ipykernel.pylab.backend_inline')
 #plt=matplotlib.pyplot
 
-import utils
+from utils import utils
 
 def main(args=None):
 

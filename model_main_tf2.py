@@ -31,7 +31,7 @@ from absl import flags
 import tensorflow.compat.v2 as tf
 from modifiedObjectDetection import model_lib_v2
 
-from evaluations import evaluate_all_checkpoints
+from modifiedObjectDetection.evaluations import evaluate_all_checkpoints
 
 flags.DEFINE_string('pipeline_config_path', None, 'Path to pipeline config '
                     'file.')
