@@ -554,7 +554,7 @@ def train_loop(
       train_input = train_input.repeat()
       return train_input
 
-    train_input = strategy.experimental_distribute_datasets_from_function(
+    train_input = strategy.distribute_datasets_from_function(
         train_dataset_fn)
 
 
