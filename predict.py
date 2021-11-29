@@ -51,6 +51,10 @@ def main(args=None):
     
     if args.output_folder is None and args.coordinate_file is None:
         raise ValueError('Either --output_folder or --coordinate_file has to be set!')
+        
+        
+    if args.output_folder and not os.path.isdir(args.output_folder):
+        os.mkdir(args.output_folder)
     
     if args.coordinate_file:
         coordinates=dict()
@@ -67,8 +71,7 @@ def main(args=None):
     #output_folder = '/media/krasax/SSD/SerialEM/15E-MS4R-A1-AMPAR_N1/2021-04-30/pred_D2_C55_15Percent'
     #image_folder= '/media/krasax/SSD/SerialEM/15E-MS4R-A1-AMPAR_N1/2021-04-30/SR_long'
     
-    if args.output_folder and not os.path.isdir(args.output_folder):
-        os.mkdir(args.output_folder)
+    
     
     image_names = [x for x in os.listdir(args.input_folder) if x.endswith('.tif') and not x.startswith('.')
                    and not x.endswith('_mod.tif') and not x.endswith('_morph.tif')]

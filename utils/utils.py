@@ -22,45 +22,91 @@ def normalizeImage(image):
     normImg = cv2.cvtColor(normImg, cv2.COLOR_GRAY2RGB)
     return normImg
 
-def downscaleImage(targetSize, image, mask=None):
+def downscaleImage(targetSize, image, mask=None, coordinates=None):
     
     if targetSize:
         targetSize = correctTargetSize(targetSize)
         if targetSize[0]<image.shape[0] or targetSize[1]<image.shape[1]:
             image = cv2.resize(image,(targetSize[0],targetSize[1]),interpolation=cv2.INTER_CUBIC)
-            if mask:
+            if mask is not None:
                 mask = cv2.resize(mask,(targetSize[0],targetSize[1]),interpolation=cv2.INTER_NEAREST)
-        
-    if mask:
+            if coordinates:
+                coordinates = np.asarray(coordinates)
+                yratio = targetSize[0]/image.shape[0]
+                xratio = targetSize[1]/image.shape[1]
+
+                coordinates[:,[0,2]] = coordinates[:,[0,2]] * xratio
+                coordinates[:,[1,3]] = coordinates[:,[1,3]] * yratio       
+                
+    if mask is not None and coordinates is not None:
+        return image, mask, coordinates
+    elif mask is not None:
         return image, mask
+    elif coordinates is not None:
+        return image, coordinates
     else:
         return image
+
+def splitImage(targetSize, image, overlap=0, coordinates=None, classes=None):
+    def _return(image,coordinates):
+        if coordinates is None:
+            return [image]
+        elif classes is None:
+            return [image], [coordinates]
+        else:
+            return [image], [coordinates], [classes]
     
-    
-def splitImage(targetSize, image, overlap=0):    
     if not targetSize:
-        return [image]
+        return _return(image,coordinates,classes)
     targetSize = correctTargetSize(targetSize)
     if targetSize[0]>=image.shape[0] and targetSize[1] >= image.shape[1]:
-        return [image]
+        return _return(image,coordinates,classes)
 
     overlap = correctOverlap(overlap)
     
     ystarts, yends = getSplitIndices(image.shape[0], targetSize[0], overlap)
     xstarts, xends = getSplitIndices(image.shape[1], targetSize[1], overlap)
-
-    images = []
+    images, coords, clss = [], [], []
     for ys, ye in zip(ystarts, yends):
         for xs, xe in zip(xstarts, xends):
             
             if len(image.shape) == 3: #RGB
                 images.append(image[ys:ye,xs:xe,:])
-            elif len(image.shape) ==1: #Gray
+            elif len(image.shape) == 2: #Gray
                 images.append(image[ys:ye,xs:xe])
             else:
                 raise ValueError(f'Image should have two or three dimensions. Got {len(image.shape)}.')
                 
-    return images
+            if coordinates is not None:
+                if not np.any(coordinates):
+                    #No coordinates on this image (i.e. coordinates is [])
+                    coords.append([])
+                    clss.append([])
+                else:
+                    split_coords=np.asarray(
+                         [p for p in coordinates if p[0]>xs and p[2]<xe and
+                          p[1]>ys and p[3]<ye] 
+                         )
+                    if not np.any(split_coords):
+                        coords.append([])
+                        clss.append([])
+                    else:
+                        split_coords[:,[0,2]] = split_coords[:,[0,2]] - xs
+                        split_coords[:,[1,3]] = split_coords[:,[1,3]] - ys
+                        coords.append(split_coords)
+                        if classes is not None:
+                            split_cls = [c for (c,p) in zip(classes,coordinates) 
+                                         if p[0]>xs and p[2]<xe and
+                                         p[1]>ys and p[3]<ye]
+                            clss.append(split_cls)
+     
+    if coordinates is None:
+        return images
+    elif classes is None:
+        return images, coords
+    else:
+        return images, coords, clss
+    
 
 def correctTargetSize(targetSize):
     if type(targetSize) is int:

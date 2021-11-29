@@ -3,9 +3,9 @@
 """
 Created on Mon Aug  2 15:38:37 2021
 
-@author: DAvid Kleindienst
+@author: David Kleindienst
 """
-import os, cv2, io, math, random
+import os, cv2, io, math, random, time
 import tensorflow as tf
 import tensorflow.compat.v1 as tfv1
 import numpy as np
@@ -15,73 +15,268 @@ from object_detection.utils import dataset_util
 
 from utils import utils
 
-def maketfRecordsFromConfig(config,filename,image_output_folder,downscale_targetSize=None,
-                            split_targetSize=None,eval_probability=0.15):
+
+
+def maketfRecords(input_type,input_items, filename, image_output_folder, 
+                  downscale_targetSize=None, split_targetSize=None,
+                  eval_probability=0.15, overlap=None,
+                  progressHandle=None, app=None):
+    
+    start=time.time()
+    
+    if os.path.isfile('tfRecord_Classes_tmp.pickle'):
+        os.remove('tfRecord_Classes_tmp.pickle')
+    
+    if type(input_items) is str:
+        input_items = [input_items]
     if not os.path.isdir(image_output_folder):
         os.mkdir(image_output_folder)
    
-    if not eval_probability:
-        filename += '.tfrecord'
-        writer = tf.io.TFRecTFRecordWriter(filename)
-    else:
-        trainName = filename+'_train.tfrecord'
-        evalName = filename+'_eval.tfrecord'
-            
-        train_writer = tf.io.TFRecordWriter(trainName) #create a writer that'll store our data to disk
-        eval_writer = tf.io.TFRecordWriter(evalName)
+    if filename.endswith('.tfrecord'):
+        filename=filename[:-9]
+    
     count = 0
-    
-    images = file2dict(config,',\t')
-    folder = os.path.split(config)[0]
-    routes = images['ROUTE']
-    
-    
-    #Find all duplicates of images  
-    duplicates=[r for r in routes if r.endswith('_dupl')]
-    #Get routes of the original images of these duplicates
-    duplicated_images=list(set([r.replace('_dupl','') for r in duplicates]))
-
-    for route in images['ROUTE']:
-        
-        if eval_probability:
-            writer = eval_writer if random.random() < eval_probability else train_writer
-        
-        if route in duplicates:
-            continue #duplicates will be included when duplicated_images are processed
-         
-        if route in duplicated_images:
-            labels = [route+'_mod.tif']
-            labels+=[r+'_mod.tif' for r in duplicates if r.startswith(route)]
-            out=convertImageToInstance(folder, route+'.tif', labels, image_output_folder,
-                                       downscale_targetSize=downscale_targetSize,
-                                       split_targetSize=split_targetSize)
+    nrFiles = len(input_items)
+    for i,item in enumerate(input_items):
+        if nrFiles>1:
+            suffix = '-' + str(i).zfill(5) + '-of-' + str(nrFiles).zfill(5)
         else:
-            out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', image_output_folder,
-                                       downscale_targetSize=downscale_targetSize,
-                                       split_targetSize=split_targetSize)
-        if out and type(out) is list:
-            for o in out:
-                if o:
-                    writer.write(o.SerializeToString())
-                    count += 1
-        elif out:
-            writer.write(out.SerializeToString())
-            count += 1
+            suffix = ''
+        if not eval_probability:
+            filename += '.tfrecord' + suffix
+            writer = tf.io.TFRecTFRecordWriter(filename)
         else:
-            print(f'Skipped {route}')
+            trainName = filename+'_train.tfrecord' + suffix
+            evalName = filename+'_eval.tfrecord' + suffix
+                
+            train_writer = tf.io.TFRecordWriter(trainName) 
+            eval_writer = tf.io.TFRecordWriter(evalName)
+            writer=(train_writer,eval_writer)
+        
+        if input_type=='Darea':
+            images = file2dict(item,',\t')
+            folder = os.path.split(item)[0]
+            routes = images['ROUTE']
+        
             
-        # if count>30:
-        #     break
-    writer.close()
-    print(f"Wrote {count} elements to TFRecord")
+            #Find all duplicates of images  
+            duplicates = [r for r in routes if r.endswith('_dupl')]
+            #Get routes of the original images of these duplicates
+            duplicated_images = list(set([r.replace('_dupl','') for r in duplicates]))
+        elif input_type=='folder' or input_type=='labelImg':
+            #This option assumes no duplicates because _mod images were not made by Darea
+            duplicates = []
+            duplicated_images = []
+            
+            folder = item
+            routes = os.listdir(folder)
+            routes = [r[:-4] for r in routes if not r.startswith('.')
+                     and r.endswith('.tif') and not r.endswith('_mod.tif')]
+            
+        else:
+            raise ValueError(f'Input type {input_type} not known. Allowed input_types are "Darea", "folder" and "labelImg"')
+    
+        for route in routes:
+            if progressHandle is not None and app is not None:
+                progressHandle.setText(f'Processing image {count}')
+                app.processEvents()
+            
+            if eval_probability:
+                writer = eval_writer if random.random() < eval_probability else train_writer
+            
+            if route in duplicates:
+                continue #duplicates will be included when duplicated_images are processed
+             
+            if route in duplicated_images:
+                labels = [route+'_mod.tif']
+                labels += [r+'_mod.tif' for r in duplicates if r.startswith(route)]
+                out = convertImageToInstance(folder, route+'.tif', labels, image_output_folder,
+                                           downscale_targetSize=downscale_targetSize,
+                                           split_targetSize=split_targetSize, overlap=overlap)
+            else:
+                if input_type=='labelImg':
+                    out = convertImageAndXMLToInstance(folder, route+'.tif',
+                                                 route+'.xml', 
+                                                 image_output_folder,
+                                                 downscale_targetSize=downscale_targetSize,
+                                                 split_targetSize=split_targetSize,
+                                                 overlap=overlap)
+                else:
+                    out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', 
+                                                 image_output_folder,
+                                                 downscale_targetSize=downscale_targetSize,
+                                                 split_targetSize=split_targetSize, 
+                                                 overlap=overlap)
+            if out and type(out) is list:
+                for o in out:
+                    if o:
+                        writer.write(o.SerializeToString())
+                        count += 1
+            elif out:
+                writer.write(out.SerializeToString())
+                count += 1
+            else:
+                print(f'Skipped {route}')
+            
+        if not eval_probability:    
+            writer.close()
+        else:
+            train_writer.close()
+            eval_writer.close()
+    
+        
+        
+    print(f"Wrote {count} elements to TFRecord in {round(time.time()-start)} seconds")
+    if progressHandle is not None and app is not None:
+        progressHandle.setText(f"Wrote {count} elements to TFRecord in {round(time.time()-start)} seconds")
+        app.processEvents()
+    
+    if os.path.isfile('tfRecord_Classes_tmp.pickle'):
+        os.remove('tfRecord_Classes_tmp.pickle')
+        
+
+def tfRecFromMasks(input_type,item,count,eval_probability,writers,image_output_folder,
+                    downscale_targetSize=None,split_targetSize=None, overlap=None,
+                    progressHandle=None, app=None):
+
+
+            
+    return count
+
+
+
+def maketfRecordsFromConfig(configs,filename,image_output_folder,downscale_targetSize=None,
+                            split_targetSize=None,eval_probability=0.15, overlap=None,
+                            progressHandle=None, app=None):
+    #This function may be superfluous
+    start=time.time()
+    if type(configs) is str:
+        configs = [configs]
+    if not os.path.isdir(image_output_folder):
+        os.mkdir(image_output_folder)
+   
+    if filename.endswith('.tfrecord'):
+        filename=filename[:-9]
+    
+    count = 0
+    nrFiles = len(configs)
+    for i,config in enumerate(configs):
+        if nrFiles>1:
+            suffix = '-' + str(i).zfill(5) + '-of-' + str(nrFiles).zfill(5)
+        else:
+            suffix = ''
+        if not eval_probability:
+            filename += '.tfrecord' + suffix
+            writer = tf.io.TFRecTFRecordWriter(filename)
+        else:
+            trainName = filename+'_train.tfrecord' + suffix
+            evalName = filename+'_eval.tfrecord' + suffix
+                
+            train_writer = tf.io.TFRecordWriter(trainName) 
+            eval_writer = tf.io.TFRecordWriter(evalName)
+    
+        images = file2dict(config,',\t')
+        folder = os.path.split(config)[0]
+        routes = images['ROUTE']
+        
+        
+        #Find all duplicates of images  
+        duplicates=[r for r in routes if r.endswith('_dupl')]
+        #Get routes of the original images of these duplicates
+        duplicated_images=list(set([r.replace('_dupl','') for r in duplicates]))
+    
+        for route in images['ROUTE']:
+            if progressHandle is not None and app is not None:
+                progressHandle.setText(f'Processing image {count}')
+                app.processEvents()
+            
+            if eval_probability:
+                writer = eval_writer if random.random() < eval_probability else train_writer
+            
+            if route in duplicates:
+                continue #duplicates will be included when duplicated_images are processed
+             
+            if route in duplicated_images:
+                labels = [route+'_mod.tif']
+                labels+=[r+'_mod.tif' for r in duplicates if r.startswith(route)]
+                out=convertImageToInstance(folder, route+'.tif', labels, image_output_folder,
+                                           downscale_targetSize=downscale_targetSize,
+                                           split_targetSize=split_targetSize, overlap=overlap)
+            else:
+                out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', image_output_folder,
+                                           downscale_targetSize=downscale_targetSize,
+                                           split_targetSize=split_targetSize, overlap=overlap)
+            if out and type(out) is list:
+                for o in out:
+                    if o:
+                        writer.write(o.SerializeToString())
+                        count += 1
+            elif out:
+                writer.write(out.SerializeToString())
+                count += 1
+            else:
+                print(f'Skipped {route}')
+                
+
+        if not eval_probability:    
+            writer.close()
+        else:
+            train_writer.close()
+            eval_writer.close()
+    print(f"Wrote {count} elements to TFRecord in {round(time.time()-start)} seconds")
+    if progressHandle is not None and app is not None:
+        progressHandle.setText(f"Wrote {count} elements to TFRecord in {round(time.time()-start)} seconds")
+        app.processEvents()
+
+def convertImageAndXMLToInstance(folder,imageFile,xml_file,image_output_folder,
+                                 downscale_targetSize=None,split_targetSize=None,overlap=None):
+    import xml.etree.ElementTree as ET
+    img=cv2.cvtColor(cv2.imread(os.path.join(folder,imageFile)),cv2.COLOR_RGB2GRAY)
+    
+    if os.path.isfile(os.path.join(folder,xml_file)):
+        tree=ET.parse(os.path.join(folder,xml_file))
+        root=tree.getroot()
+        
+        #Make sure image size is same as described in xml
+        assert img.shape[0]==int(root.find('size').find('height').text)
+        assert img.shape[1]==int(root.find('size').find('width').text)
+        boxes=[]
+        classes=[]
+        for obj in root.findall('object'):
+            # bndbox = [xmin, ymin, xmax, ymax]
+            bndbox = [int(obj.find('bndbox').find('xmin').text),
+                      int(obj.find('bndbox').find('ymin').text),
+                      int(obj.find('bndbox').find('xmax').text),
+                      int(obj.find('bndbox').find('ymax').text)]
+            boxes.append(bndbox)
+            classes.append(obj.find('name').text)
+    else:
+        boxes = []
+        classes = []
+        
+    img, boxes = utils.downscaleImage(downscale_targetSize, img, coordinates=boxes)    
+    
+    split_images, split_boxes, split_classes = utils.splitImage(split_targetSize,img, 
+                                                                coordinates=boxes, 
+                                                                classes=classes,
+                                                                overlap=overlap)
+    examples=[]
+    for count, (split_img, split_box,split_class) in enumerate(zip(split_images,split_boxes, split_classes)):
+        suffix = f'_split_{count+1}_of_{len(split_images)}'
+        jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
+        examples.append(getExampleFromImageAndBox(split_img, split_box,split_class, jpgPath))
+        
+    return examples
+
+    
 
 def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgroundIsWhite=True,
                            downscale_targetSize=None,split_targetSize=None,overlap=None):
     if backgroundIsWhite:
-        npFunc=lambda x: 255*np.ones(x)
+        npFunc=lambda x: 255*np.ones(x,dtype=np.uint8)
         minmaxFunc = lambda x: np.min(x, axis=0)
     else:
-        npFunc = lambda x: np.zeros(x)
+        npFunc = lambda x: np.zeros(x,dtype=np.uint8)
         minmaxFunc = lambda x: np.max(x, axis=0)
     img=cv2.cvtColor(cv2.imread(os.path.join(folder,imageFile)),cv2.COLOR_RGB2GRAY)
     if type(labelFile) is str:
@@ -98,13 +293,11 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
        
     else:
         raise ValueError(f'Argument label file needs to be a filepath or list of filepaths. {labelFile} given.')
-                            
-    
     assert img.shape[0]==demarc.shape[0] and img.shape[1]==demarc.shape[1] and img.shape[0]==img.shape[1]
     
     img,demarc = utils.downscaleImage(downscale_targetSize, img, demarc)
     
-    
+
     if backgroundIsWhite:
         backgroundcolor = np.max(demarc)
     else:
@@ -115,30 +308,7 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
     
     close_dim = 8 #Some smoothing
     mask = cv2.morphologyEx(mask,cv2.MORPH_CLOSE,np.ones((close_dim,close_dim),np.uint8))
-    
-
-    
-    # if split_targetSize and split_targetSize<img.shape[0]:
-    #     num_splits = math.ceil(img.shape[0]/split_targetSize)
-    #     examples = []
-    #     count=1
-    #     for yn in range(num_splits):
-    #         for xn in range(num_splits):
-    #             y = img.shape[0]-1-split_targetSize if yn==num_splits-1 else yn * split_targetSize
-    #             x = img.shape[1]-1-split_targetSize if xn==num_splits-1 else xn * split_targetSize
-
-                
-    #             img_split=img[y:y+split_targetSize,x:x+split_targetSize]
-    #             mask_split=mask[y:y+split_targetSize,x:x+split_targetSize]
-    #             suffix = f'_split_{count}_of_{num_splits*num_splits}'
-    #             jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
-                
-    #             examples.append(getExampleFromImage(img_split, mask_split, jpgPath))
-    #             count += 1
-    # else:
-    #     jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', '.jpg'))
-    #     return getExampleFromImage(img,mask,jpgPath)
-    
+        
     split_images = utils.splitImage(split_targetSize,img,overlap)
     split_masks = utils.splitImage(split_targetSize,mask,overlap)
     examples = []
@@ -148,7 +318,88 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
         examples.append(getExampleFromImage(split_img, split_mask, jpgPath))
         
     return examples
-                                    
+ 
+def getExampleFromImageAndBox(img,boxes,classes_text,jpgPath):
+    import pickle
+    
+    #Classes need to remain consistent between calls to this function
+    #So its necessary to save and load to disk
+    if os.path.isfile('tfRecord_Classes_tmp.pickle'):
+        class_dict=pickle.load(open('tfRecord_Classes_tmp.pickle','rb'))
+    else:
+        class_dict=dict()
+    
+    height = img.shape[0]
+    width = img.shape[1]
+    
+    classes=[]
+    for c in classes_text:
+        if c in class_dict:
+            classes.append(c)
+        else:
+            if not class_dict:
+                class_dict[c] = 1
+                classes.append(1)
+            else:
+                val = max(class_dict.values())+1
+                class_dict[c] = val
+                classes.append(val)
+        
+    classes_text = [c.encode('utf8') for c in classes_text]
+    
+    pickle.dump(class_dict, open('tfRecord_Classes_tmp.pickle','wb'))
+    
+    height = img.shape[0]
+    width = img.shape[1]
+
+    img = cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
+    #Normalize image to use whole 8bit space
+    normImg = np.zeros(img.shape)
+    normImg = cv2.normalize(img,normImg,0,255,cv2.NORM_MINMAX)
+    
+    if not os.path.isdir(os.path.split(jpgPath)[0]):
+        os.mkdir(os.path.split(jpgPath)[0])     
+               
+        
+    #Saving and then reading jpg seems useless, but somehow is necessary
+    cv2.imwrite(jpgPath,normImg)
+    with tfv1.gfile.GFile(jpgPath, 'rb') as fid:
+        encoded_jpg = fid.read()
+    encoded_jpg_io = io.BytesIO(encoded_jpg)
+    image = Image.open(encoded_jpg_io)
+    
+    if image.format != 'JPEG':
+        raise ValueError(f'Image format not JPEG but {image.format}')
+        
+    if len(boxes)>0:
+        data = {
+            'image/height' : dataset_util.int64_feature(height),
+            'image/width' : dataset_util.int64_feature(width),
+            'image/encoded' : dataset_util.bytes_feature(encoded_jpg),
+            'image/object/bbox/xmin': dataset_util.float_list_feature(boxes[:,0]),
+            'image/object/bbox/xmax': dataset_util.float_list_feature(boxes[:,2]),
+            'image/object/bbox/ymin': dataset_util.float_list_feature(boxes[:,1]),
+            'image/object/bbox/ymax': dataset_util.float_list_feature(boxes[:,3]),
+            'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
+            'image/object/class/label': dataset_util.int64_list_feature(classes),
+            'image/filename': dataset_util.bytes_feature(jpgPath.encode('utf8')),
+            'image/source_id': dataset_util.bytes_feature(jpgPath.encode('utf8')),
+            'image/format': dataset_util.bytes_feature('.jpg'.encode('utf8')),
+    
+        }
+    else:
+        data = {
+            'image/height' : dataset_util.int64_feature(height),
+            'image/width' : dataset_util.int64_feature(width),
+            'image/encoded' : dataset_util.bytes_feature(encoded_jpg),
+            
+            'image/filename': dataset_util.bytes_feature(jpgPath.encode('utf8')),
+            'image/source_id': dataset_util.bytes_feature(jpgPath.encode('utf8')),
+            'image/format': dataset_util.bytes_feature('.jpg'.encode('utf8')),
+    
+        }
+        
+    return tf.train.Example(features=tf.train.Features(feature=data))
     
 def getExampleFromImage(img,mask,jpgPath):
 
@@ -162,6 +413,7 @@ def getExampleFromImage(img,mask,jpgPath):
     height = img.shape[0]
     width = img.shape[1]
     if np.any(mask):
+
         num_objects, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         for x in range(1,num_objects):
             xmins.append(stats[x,0]/width)
@@ -171,11 +423,6 @@ def getExampleFromImage(img,mask,jpgPath):
             classes.append(1)
             classes_text.append('PSD'.encode('utf8'))
 
-    # print(xmins)
-    # print(xmaxs)
-    # print(ymins)
-    # print(ymaxs)
-    # print('\n')
     img = cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
     #Normalize image to use whole 8bit space
     normImg = np.zeros(img.shape)
@@ -183,7 +430,7 @@ def getExampleFromImage(img,mask,jpgPath):
     
     if not os.path.isdir(os.path.split(jpgPath)[0]):
         os.mkdir(os.path.split(jpgPath)[0])
-        
+    #Saving and then reading jpg seems useless, but somehow is necessary
     cv2.imwrite(jpgPath,normImg)
     with tfv1.gfile.GFile(jpgPath, 'rb') as fid:
         encoded_jpg = fid.read()
@@ -193,6 +440,7 @@ def getExampleFromImage(img,mask,jpgPath):
     
     if image.format != 'JPEG':
         raise ValueError(f'Image format not JPEG but {image.format}')
+        
     if xmins:
         data = {
             'image/height' : dataset_util.int64_feature(height),
@@ -204,20 +452,18 @@ def getExampleFromImage(img,mask,jpgPath):
             'image/object/bbox/ymax': dataset_util.float_list_feature(ymaxs),
             'image/object/class/text': dataset_util.bytes_list_feature(classes_text),
             'image/object/class/label': dataset_util.int64_list_feature(classes),
-            #What to do with these?
             'image/filename': dataset_util.bytes_feature(jpgPath.encode('utf8')),
             'image/source_id': dataset_util.bytes_feature(jpgPath.encode('utf8')),
             'image/format': dataset_util.bytes_feature('.jpg'.encode('utf8')),
     
         }
     else: #No objects in this image
-        return None
+        #return None
         data = {
             'image/height' : dataset_util.int64_feature(height),
             'image/width' : dataset_util.int64_feature(width),
             'image/encoded' : dataset_util.bytes_feature(encoded_jpg),
             
-            #What to do with these?
             'image/filename': dataset_util.bytes_feature(jpgPath.encode('utf8')),
             'image/source_id': dataset_util.bytes_feature(jpgPath.encode('utf8')),
             'image/format': dataset_util.bytes_feature('.jpg'.encode('utf8')),
