@@ -27,6 +27,7 @@ python model_main_tf2.py -- \
   --pipeline_config_path=$PIPELINE_CONFIG_PATH \
   --alsologtostderr
 """
+import os
 from absl import flags
 import tensorflow.compat.v2 as tf
 from modifiedObjectDetection import model_lib_v2
@@ -75,7 +76,7 @@ flags.DEFINE_boolean('record_summaries', True,
 FLAGS = flags.FLAGS
 
 
-def main(unused_argv):
+def main(unused_argv=None):
   flags.mark_flag_as_required('model_dir')
   flags.mark_flag_as_required('pipeline_config_path')
   tf.config.set_soft_device_placement(True)
@@ -113,6 +114,5 @@ def main(unused_argv):
           checkpoint_every_n=FLAGS.checkpoint_every_n,
           record_summaries=FLAGS.record_summaries,
           checkpoint_max_to_keep=100)
-
 if __name__ == '__main__':
   tf.compat.v1.app.run()
