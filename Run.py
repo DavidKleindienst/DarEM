@@ -67,6 +67,7 @@ class MainWindow(QMainWindow):
 
 
 class SubWindow(QMainWindow):
+    '''Functionality for showing MainWindow after closing Subwindow'''
     def __init__(self,parent):
         super().__init__(parent)
         self.parent = parent
@@ -97,6 +98,7 @@ class ImportWindow(SubWindow):
         self.combo.addItem("Darea project file")
         self.combo.addItem("Folder with labelImg annotated images")
         self.combo.addItem("Folder with manually annotated images")
+        self.combo.setToolTip('Select what kind of data you want to import')
         self.combo.currentIndexChanged.connect(self.changeInputType)
         layoutFrom.addWidget(self.combo)
         layout=QHBoxLayout()
