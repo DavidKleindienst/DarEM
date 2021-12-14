@@ -22,6 +22,8 @@ from modifiedObjectDetection import model_builder
 
 from utils import utils
 
+
+
 def main(args=None):
 
     parser = argparse.ArgumentParser()
@@ -29,8 +31,10 @@ def main(args=None):
                         help='Path to the pipeline.config file.')
     parser.add_argument('--checkpoint_path', type=str, required=True, 
                         help='Path to the checkpoint file')
-    parser.add_argument('--input_folder', type=str, required=True, 
+    parser.add_argument('--input_folder', type=str, default=None, 
                         help='Folder containing the images to be predicted on')
+    parser.add_argument('--navfile', type=str, default=None, 
+                        help='navfile')
     parser.add_argument('--min_score', type=float, default=0.15, 
                         help='Minimum score for a detection to be taken')
     parser.add_argument('--output_folder', type=str, default=None, 
@@ -40,18 +44,24 @@ def main(args=None):
     parser.add_argument('--downscale_targetsize', type=int, nargs='+', default=2048, 
                         help='Targetsize of image after downscaling')
     parser.add_argument('--split_targetsize', type=int, nargs='+', default=768,
-                        help='Targetsize of image after splitting')
+                        help='Targetsize of image after splitting. This is the size of image that will be predicted on')
     parser.add_argument('--overlap', type=float, default=0.1, 
                         help='Overlap between split images')
+    parser.add_argument('--wait', action='store_true',help='Use when running in parallel with imaging' )
     
     if args is None:
         args=parser.parse_args()
     else:
         args=parser.parse_args(args)
-    
+    if args.input_folder is None and args.navfile is None:
+        raise ValueError('No input provided')
+    elif args.input_folder is None:
+        args.input_folder=os.path.split(args.navfile)[0]
+        args.coordinate_file=args.navfile[:-3]+'json'
+
+
     if args.output_folder is None and args.coordinate_file is None:
         raise ValueError('Either --output_folder or --coordinate_file has to be set!')
-        
         
     if args.output_folder and not os.path.isdir(args.output_folder):
         os.mkdir(args.output_folder)
@@ -62,6 +72,8 @@ def main(args=None):
             args.coordinate_file = os.path.join(args.coordinate_file, 'centroids.json')
         elif not args.coordinate_file.endswith('.json'):
             args.coordinate_file += '.json'
+    else:
+        coordinates = None
     
     #PATH_TO_CFG = '/home/krasax/Python_scripts/PSD_Finder/my_models/efficientnet_d2/pipeline.config'
     #PATH_TO_CKPT = '/home/krasax/Python_scripts/PSD_Finder/clusterTrainedModels/efficientdet_D2/ckpt-55'
@@ -73,17 +85,8 @@ def main(args=None):
     
     
     
-    image_names = [x for x in os.listdir(args.input_folder) if x.endswith('.tif') and not x.startswith('.')
-                   and not x.endswith('_mod.tif') and not x.endswith('_morph.tif')]
-    image_names.sort()
-    
-    #image_names = ['replica0007.tif']
-    
-    image_paths = [os.path.join(args.input_folder,x) for x in image_names]
-    output_paths = [os.path.join(args.output_folder,x) if args.output_folder else None for x in image_names]
-    
-    
-    
+
+        
     print('Loading model... ', end='')
     start_time = time.time()
     
@@ -95,13 +98,58 @@ def main(args=None):
     # Restore checkpoint
     ckpt = tf.compat.v2.train.Checkpoint(model=detection_model)
     ckpt.restore(args.checkpoint_path).expect_partial()
-    current_time = time.time()
-    print('Done! Took {} seconds'.format(current_time - start_time))
+    
+    print('Done! Took {} seconds'.format(time.time() - start_time))
     #downscale_targetSize = 2048
     #split_targetSize = 768
     #overlap = 10
-    for image_path,output_path in zip(image_paths,output_paths):
     
+    if args.wait:
+        image_paths, output_paths, image_names = getImagePaths(args)
+        while True:
+            coordinates = predictionLoop(args, detection_model, image_paths,
+                                         output_paths, coordinates)
+            time.sleep(60)
+            image_paths, output_paths, image_names, isNew = getImagePaths(args,image_names)
+            
+            if not isNew:
+                #Stop when no new images appeared 
+                break
+    else:
+        image_paths, output_paths, _ = getImagePaths(args)
+        coordinates = predictionLoop(args, detection_model, image_paths, output_paths, coordinates)
+        
+    #plt.show()
+    if args.coordinate_file:
+        with open(args.coordinate_file, 'w') as f:
+            json.dump(coordinates,f)
+
+    print(f'Finished. Took {time.time()-start_time} seconds for {len(image_paths)} images.')
+    
+def getImagePaths(args, oldNames=None):
+    image_names = [x for x in os.listdir(args.input_folder) if x.endswith('.tif')
+               and not x.startswith('.') and not x.endswith('_mod.tif')
+               and not x.endswith('_morph.tif')]
+    if oldNames is not None:
+        if image_names == oldNames:
+            isNew = False
+        else:
+            isNew = True
+            image_names = list(set(image_names)-set(oldNames))
+        
+    image_names.sort()
+    
+    
+    image_paths = [os.path.join(args.input_folder,x) for x in image_names]
+    output_paths = [os.path.join(args.output_folder,x) if args.output_folder else None for x in image_names]
+    if oldNames is None:
+        return image_paths, output_paths, image_names
+    else:
+        return image_paths, output_paths, image_names, isNew
+
+def predictionLoop(args,detection_model,image_paths,output_paths,coordinates):
+    for image_path,output_path in zip(image_paths,output_paths):
+        current_time = time.time()
         print('Running inference for {}... '.format(image_path), end='')
     
         image_np = cv2.imread(image_path)
@@ -140,7 +188,7 @@ def main(args=None):
             # detection_classes should be ints.
             detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
         
-            label_id_offset = 1
+            #label_id_offset = 1
             
             outIm = np.zeros((im.shape[0],im.shape[1]))
             splitCoords=[]
@@ -186,14 +234,8 @@ def main(args=None):
             
         print(f'Done. Took {time.time()-current_time} seconds')
         current_time = time.time()
-        
-    #plt.show()
-    if args.coordinate_file:
-        with open(args.coordinate_file, 'w') as f:
-            json.dump(coordinates,f)
+        return coordinates
 
-    print(f'Finished. Took {time.time()-start_time} seconds for {len(image_paths)} images.')
-    
 @tf.function
 def detect_fn(image,detection_model):
     """Detect objects in image."""

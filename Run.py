@@ -31,6 +31,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 
 from utils.makeTFRecords import maketfRecords
+from utils.utils import getCheckpoints, getNetworks
 
 #Default Values
 downscale_targetsize=2048
@@ -201,7 +202,7 @@ class TrainingWindow(SubWindow):
     def __init__(self,parent):
         super().__init__(parent)
         self.setWindowTitle('Perform Training')
-        networks=getNetworks()
+        networks=getNetworks(MODELFOLDER)
         self.tfRecord=''
         self.tfRecordEval=''
         #Still need to write UI for following!!
@@ -231,7 +232,7 @@ class TrainingWindow(SubWindow):
         
         l_continue = QHBoxLayout()
         l_continue.addWidget(QLabel('Continue Training From'))
-        checkpoints = getCheckpoints(self.network_select.currentText())
+        checkpoints = getCheckpoints(MODELFOLDER,self.network_select.currentText())
         self.continue_from = QComboBox()
         self.continue_from.addItems(checkpoints)
         l_continue.addWidget(self.continue_from)
@@ -261,7 +262,7 @@ class TrainingWindow(SubWindow):
       
     def changeNetwork(self,text):
         self.continue_from.clear()
-        self.continue_from.addItems(getCheckpoints(text))
+        self.continue_from.addItems(MODELFOLDER,getCheckpoints(text))
     def selectTfrecord(self):
      filename = QFileDialog.getOpenFileNames(self,'Select File', filter='Tfrecord dataset (*.tfrecord)')[0][0]
      if filename:
@@ -380,20 +381,7 @@ def processTfRecordFilename(filename):
         filename = filename[0:m.span(0)[0]+len('.tfrecord')]
     return filename             
         
-def getNetworks():
-    networks = [f for f in os.listdir(MODELFOLDER)
-                if not f.startswith('.') and
-                os.path.isdir(os.path.join(MODELFOLDER,f)) and
-                os.path.isfile(os.path.join(MODELFOLDER,f,'pipeline_default.config'))]
-    networks.sort()
-    return networks
 
-def getCheckpoints(network_name):
-    folder = os.path.join(MODELFOLDER, network_name)
-    checkpoints = [f[:-len('.index')] for f in os.listdir(folder) 
-                   if not f.startswith('.') and f.endswith('.index')]
-    checkpoints.sort()
-    return checkpoints
 
 app = QApplication(sys.argv)
 w = MainWindow()

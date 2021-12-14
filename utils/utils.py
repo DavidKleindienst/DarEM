@@ -10,6 +10,34 @@ import os, cv2, math
 import numpy as np
 
 
+def getNetworkList(modelfolder):
+    networks = getNetworks(modelfolder)
+
+    network_list=[]
+    
+    for n in networks:
+        checkpoints = getCheckpoints(modelfolder, n)
+        if len(checkpoints)<1:
+            continue
+        for c in checkpoints:
+            network_list.append([n+':'+c,n,c])
+    return network_list
+
+def getNetworks(modelfolder):
+    networks = [f for f in os.listdir(modelfolder)
+                if not f.startswith('.') and
+                os.path.isdir(os.path.join(modelfolder,f)) and
+                os.path.isfile(os.path.join(modelfolder,f,'pipeline_default.config'))]
+    networks.sort()
+    return networks
+
+def getCheckpoints(modelfolder,network_name):
+    folder = os.path.join(modelfolder, network_name)
+    checkpoints = [f[:-len('.index')] for f in os.listdir(folder) 
+                   if not f.startswith('.') and f.endswith('.index')]
+    checkpoints.sort()
+    return checkpoints
+
 def normalizeImage(image):
 
     image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
