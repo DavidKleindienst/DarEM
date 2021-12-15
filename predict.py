@@ -25,7 +25,8 @@ from utils import utils
 
 
 def main(args=None):
-
+    WAIT_TIME = 45
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--pipeline_path', type=str, required=True, 
                         help='Path to the pipeline.config file.')
@@ -57,7 +58,7 @@ def main(args=None):
         raise ValueError('No input provided')
     elif args.input_folder is None:
         args.input_folder=os.path.split(args.navfile)[0]
-        args.coordinate_file=args.navfile[:-3]+'json'
+        args.coordinate_file=os.path.splitext(args.navfile)[0]+'.json'
 
 
     if args.output_folder is None and args.coordinate_file is None:
@@ -74,18 +75,6 @@ def main(args=None):
             args.coordinate_file += '.json'
     else:
         coordinates = None
-    
-    #PATH_TO_CFG = '/home/krasax/Python_scripts/PSD_Finder/my_models/efficientnet_d2/pipeline.config'
-    #PATH_TO_CKPT = '/home/krasax/Python_scripts/PSD_Finder/clusterTrainedModels/efficientdet_D2/ckpt-55'
-    #PATH_TO_LABELS = '/home/krasax/Python_scripts/PSD_Finder/label_map.pbtxt'
-    #MIN_SCORE = 0.15
-    
-    #output_folder = '/media/krasax/SSD/SerialEM/15E-MS4R-A1-AMPAR_N1/2021-04-30/pred_D2_C55_15Percent'
-    #image_folder= '/media/krasax/SSD/SerialEM/15E-MS4R-A1-AMPAR_N1/2021-04-30/SR_long'
-    
-    
-    
-
         
     print('Loading model... ', end='')
     start_time = time.time()
@@ -99,76 +88,77 @@ def main(args=None):
     ckpt = tf.compat.v2.train.Checkpoint(model=detection_model)
     ckpt.restore(args.checkpoint_path).expect_partial()
     
-    print('Done! Took {} seconds'.format(time.time() - start_time))
-    #downscale_targetSize = 2048
-    #split_targetSize = 768
-    #overlap = 10
-    
+    print(f'Done! Took {round(time.time() - start_time,2)} seconds')
+    total_wait_time = 0
     if args.wait:
-        image_paths, output_paths, image_names = getImagePaths(args)
+        image_paths, output_paths, all_image_names = getImagePaths(args)
         while True:
+            time_before_loop = time.time()
             coordinates = predictionLoop(args, detection_model, image_paths,
                                          output_paths, coordinates)
-            time.sleep(60)
-            image_paths, output_paths, image_names, isNew = getImagePaths(args,image_names)
+            time_spent_in_loop = time.time()-time_before_loop
+            if  time_spent_in_loop < WAIT_TIME:
+                #No need to wait if enough time already passed during the prediction
+                print('Waiting for more images to appear...')
+                time.sleep(WAIT_TIME - time_spent_in_loop)
+                total_wait_time += WAIT_TIME - time_spent_in_loop
+            image_paths, output_paths, all_image_names, isNew = getImagePaths(args,all_image_names)
             
-            if not isNew:
-                #Stop when no new images appeared 
+            if not isNew: #Stop when no new images appeared 
                 break
     else:
-        image_paths, output_paths, _ = getImagePaths(args)
+        image_paths, output_paths, all_image_names = getImagePaths(args)
         coordinates = predictionLoop(args, detection_model, image_paths, output_paths, coordinates)
         
     #plt.show()
     if args.coordinate_file:
         with open(args.coordinate_file, 'w') as f:
             json.dump(coordinates,f)
-
-    print(f'Finished. Took {time.time()-start_time} seconds for {len(image_paths)} images.')
+    if total_wait_time:
+        print(f'Finished. Took {round(time.time() - start_time,2)}' \
+              f' seconds for {len(all_image_names)} images, out of which' \
+              f' {round(total_wait_time,2)} seconds were spent waiting for new images.')
+    else:
+        print(f'Finished. Took {round(time.time() - start_time,2)} seconds' \
+              f' for {len(all_image_names)} images.')
     
 def getImagePaths(args, oldNames=None):
-    image_names = [x for x in os.listdir(args.input_folder) if x.endswith('.tif')
+    all_image_names = [x for x in os.listdir(args.input_folder) if x.endswith('.tif')
                and not x.startswith('.') and not x.endswith('_mod.tif')
                and not x.endswith('_morph.tif')]
+    all_image_names.sort()
     if oldNames is not None:
-        if image_names == oldNames:
+        if all_image_names == oldNames:
             isNew = False
+            image_names = all_image_names
         else:
             isNew = True
-            image_names = list(set(image_names)-set(oldNames))
+            image_names = list(set(all_image_names)-set(oldNames))
+            image_names.sort()
+    else:
+        image_names = all_image_names
         
-    image_names.sort()
-    
     
     image_paths = [os.path.join(args.input_folder,x) for x in image_names]
     output_paths = [os.path.join(args.output_folder,x) if args.output_folder else None for x in image_names]
     if oldNames is None:
-        return image_paths, output_paths, image_names
+        return image_paths, output_paths, all_image_names
     else:
-        return image_paths, output_paths, image_names, isNew
+        return image_paths, output_paths, all_image_names, isNew
 
 def predictionLoop(args,detection_model,image_paths,output_paths,coordinates):
     for image_path,output_path in zip(image_paths,output_paths):
         current_time = time.time()
-        print('Running inference for {}... '.format(image_path), end='')
+        print(f'Running inference for {image_path}... ', end='')
     
         image_np = cv2.imread(image_path)
         originalSize = image_np.shape
         image_np = utils.downscaleImage(args.downscale_targetsize, image_np)
-    
-        # Things to try:
-        # Flip horizontally
-        # image_np = np.fliplr(image_np).copy()
-    
-        # Convert image to grayscale
-        # image_np = np.tile(
-        #     np.mean(image_np, 2, keepdims=True), (1, 1, 3)).astype(np.uint8)
+                
+        normalizedImg = np.zeros(image_np.shape)
+        normalizedImg = cv2.normalize(image_np,normalizedImg,0,255,cv2.NORM_MINMAX)
         
-        
-        normImg = np.zeros(image_np.shape)
-        normImg = cv2.normalize(image_np,normImg,0,255,cv2.NORM_MINMAX)
-        
-        images = utils.splitImage(args.split_targetsize, normImg, args.overlap)
+        images = utils.splitImage(args.split_targetsize, normalizedImg, args.overlap)
         outImgs = []
         imCoords = []
         for im in images:
@@ -220,21 +210,22 @@ def predictionLoop(args,detection_model,image_paths,output_paths,coordinates):
         if args.output_folder:    
             assert len(images) == len(outImgs)
                 
-            outImage = utils.fuseMasks(normImg.shape, outImgs, args.overlap)
+            outImage = utils.fuseMasks(normalizedImg.shape, outImgs, args.overlap)
             cv2.imwrite(output_path, np.uint8(outImage)*255)
         
         if args.coordinate_file:
             assert len(images) == len(imCoords)
             
-            imageCoords = utils.get_coords_from_split(normImg.shape, args.split_targetsize,
+            imageCoords = utils.get_coords_from_split(normalizedImg.shape, args.split_targetsize,
                                                          imCoords, args.overlap)
             k = filepath_to_name(image_path)
             
-            coordinates[k] = utils.upscale_coordinates(imageCoords, originalSize[0:2], normImg.shape[0:2])
+            coordinates[k] = utils.upscale_coordinates(imageCoords, originalSize[0:2],
+                                                       normalizedImg.shape[0:2])
             
-        print(f'Done. Took {time.time()-current_time} seconds')
+        print(f'Done. Took {round(time.time()-current_time,2)} seconds')
         current_time = time.time()
-        return coordinates
+    return coordinates
 
 @tf.function
 def detect_fn(image,detection_model):

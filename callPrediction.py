@@ -88,7 +88,6 @@ class MainWindow(QMainWindow):
     def pickFile(self):
         path = QFileDialog.getOpenFileName(self,'Select File',
                             filter='Navigator file (*.nav);; Image document file (*.idoc)')
-        print(path)
         if path:
             path = path[0]
             self.nav = path
@@ -98,9 +97,7 @@ class MainWindow(QMainWindow):
         self.close()
     
     def pickWait(self,checkbox):
-        self.waitForImages = checkbox.isChecked()
-        print(self.waitForImages)
-        
+        self.waitForImages = checkbox.isChecked()        
         
     def accept(self):
         self.hide()
