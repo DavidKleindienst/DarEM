@@ -11,7 +11,10 @@ import numpy as np
 
 
 def getNetworkList(modelfolder):
-    networks = getNetworks(modelfolder)
+    '''Returns an array containing all available checkpoints for each network type.
+    Each entry in the array has the follwing format
+    [networkType:checkpointName, networkType, checkpointName]'''
+    networks = getNetworkTypes(modelfolder)
 
     network_list=[]
     
@@ -23,7 +26,10 @@ def getNetworkList(modelfolder):
             network_list.append([n+':'+c,n,c])
     return network_list
 
-def getNetworks(modelfolder):
+def getNetworkTypes(modelfolder):
+    '''Returns all the configured types of neural networks.
+    Each network has its own folder in the modelfolder where the folder is the name of the network
+    A configured network also has a pipeline_default.config file in its folder'''
     networks = [f for f in os.listdir(modelfolder)
                 if not f.startswith('.') and
                 os.path.isdir(os.path.join(modelfolder,f)) and
@@ -32,6 +38,7 @@ def getNetworks(modelfolder):
     return networks
 
 def getCheckpoints(modelfolder,network_name):
+    '''Gets all names of checkpoints in the network's folder'''
     folder = os.path.join(modelfolder, network_name)
     checkpoints = [f[:-len('.index')] for f in os.listdir(folder) 
                    if not f.startswith('.') and f.endswith('.index')]

@@ -99,7 +99,7 @@ def main(args=None):
             time_spent_in_loop = time.time()-time_before_loop
             if  time_spent_in_loop < WAIT_TIME:
                 #No need to wait if enough time already passed during the prediction
-                print('Waiting for more images to appear...')
+                print('Waiting for more images...')
                 time.sleep(WAIT_TIME - time_spent_in_loop)
                 total_wait_time += WAIT_TIME - time_spent_in_loop
             image_paths, output_paths, all_image_names, isNew = getImagePaths(args,all_image_names)

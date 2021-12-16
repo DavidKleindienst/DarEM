@@ -28,10 +28,11 @@ python model_main_tf2.py -- \
   --alsologtostderr
 """
 import os
+
 from absl import flags
 import tensorflow.compat.v2 as tf
+from tensorflow import get_logger
 from modifiedObjectDetection import model_lib_v2
-
 from modifiedObjectDetection.evaluations import evaluate_all_checkpoints
 
 flags.DEFINE_string('pipeline_config_path', None, 'Path to pipeline config '
@@ -72,9 +73,11 @@ flags.DEFINE_boolean('record_summaries', True,
                       ' or the training pipeline. This does not impact the'
                       ' summaries of the loss values which are always'
                       ' recorded.'))
+flags.DEFINE_integer(
+    'checkpoints_max_to_keep', 100, 'Integer defining how many checkpoints to keep.')
 
 FLAGS = flags.FLAGS
-
+get_logger().propagate = False #Avoid duplicate log messages
 
 def main(unused_argv=None):
   flags.mark_flag_as_required('model_dir')
@@ -91,6 +94,7 @@ def main(unused_argv=None):
             FLAGS.sample_1_of_n_eval_on_train_examples),
         checkpoint_dir=FLAGS.checkpoint_dir,
         wait_interval=300, timeout=FLAGS.eval_timeout)
+    print('Finished Evaluation!')
   else:
     if FLAGS.use_tpu:
       # TPU is automatically inferred if tpu_name is None and
@@ -104,7 +108,7 @@ def main(unused_argv=None):
       strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
     else:
       strategy = tf.compat.v2.distribute.MirroredStrategy()
-    print(FLAGS.pipeline_config_path)
+
     with strategy.scope():
       model_lib_v2.train_loop(
           pipeline_config_path=FLAGS.pipeline_config_path,
@@ -113,6 +117,7 @@ def main(unused_argv=None):
           use_tpu=FLAGS.use_tpu,
           checkpoint_every_n=FLAGS.checkpoint_every_n,
           record_summaries=FLAGS.record_summaries,
-          checkpoint_max_to_keep=100)
+          checkpoint_max_to_keep=FLAGS.checkpoints_max_to_keep)
+    print('Finished Training!')
 if __name__ == '__main__':
   tf.compat.v1.app.run()

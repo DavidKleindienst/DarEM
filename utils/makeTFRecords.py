@@ -18,9 +18,15 @@ from utils import utils
 
 
 def maketfRecords(input_type,input_items, filename, image_output_folder, 
+                  class_name=None,
                   downscale_targetSize=None, split_targetSize=None,
                   eval_probability=0.15, overlap=None,
                   progressHandle=None, app=None):
+    '''
+    input type can be Darea, folder or XML
+    '''
+    if class_name is None and input_type != 'XML':
+        raise ValueError(f'class_name needs to be provided for input_type {input_type}!')
     
     start=time.time()
     
@@ -63,7 +69,7 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
             duplicates = [r for r in routes if r.endswith('_dupl')]
             #Get routes of the original images of these duplicates
             duplicated_images = list(set([r.replace('_dupl','') for r in duplicates]))
-        elif input_type=='folder' or input_type=='labelImg':
+        elif input_type=='folder' or input_type=='XML':
             #This option assumes no duplicates because _mod images were not made by Darea
             duplicates = []
             duplicated_images = []
@@ -74,12 +80,16 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                      and r.endswith('.tif') and not r.endswith('_mod.tif')]
             
         else:
-            raise ValueError(f'Input type {input_type} not known. Allowed input_types are "Darea", "folder" and "labelImg"')
+            raise ValueError(f'Input type {input_type} not known. Allowed input_types are "Darea", "folder" and "XML"')
     
         for route in routes:
             if progressHandle is not None and app is not None:
                 progressHandle.setText(f'Processing image {count}')
                 app.processEvents()
+                
+            if not os.path.isfile(os.path.join(folder,route+'.tif')):
+                print(f'Image {route} not found. Skipped image.')
+                continue
             
             if eval_probability:
                 writer = eval_writer if random.random() < eval_probability else train_writer
@@ -94,7 +104,7 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                                            downscale_targetSize=downscale_targetSize,
                                            split_targetSize=split_targetSize, overlap=overlap)
             else:
-                if input_type=='labelImg':
+                if input_type=='XML':
                     out = convertImageAndXMLToInstance(folder, route+'.tif',
                                                  route+'.xml', 
                                                  image_output_folder,
@@ -103,7 +113,7 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                                                  overlap=overlap)
                 else:
                     out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', 
-                                                 image_output_folder,
+                                                 image_output_folder, class_name,
                                                  downscale_targetSize=downscale_targetSize,
                                                  split_targetSize=split_targetSize, 
                                                  overlap=overlap)
@@ -135,20 +145,12 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
         os.remove('tfRecord_Classes_tmp.pickle')
         
 
-def tfRecFromMasks(input_type,item,count,eval_probability,writers,image_output_folder,
-                    downscale_targetSize=None,split_targetSize=None, overlap=None,
-                    progressHandle=None, app=None):
 
-
-            
-    return count
-
-
-
-def maketfRecordsFromConfig(configs,filename,image_output_folder,downscale_targetSize=None,
+def maketfRecordsFromConfig(configs,filename,image_output_folder,
+                            class_name,downscale_targetSize=None,
                             split_targetSize=None,eval_probability=0.15, overlap=None,
                             progressHandle=None, app=None):
-    #This function may be superfluous
+    #This function may be obsolete
     start=time.time()
     if type(configs) is str:
         configs = [configs]
@@ -189,6 +191,9 @@ def maketfRecordsFromConfig(configs,filename,image_output_folder,downscale_targe
             if progressHandle is not None and app is not None:
                 progressHandle.setText(f'Processing image {count}')
                 app.processEvents()
+            if not os.path.isfile(os.path.join(folder,route+'.tif')):
+                print(f'Image {route} not found. Skipped image.')
+                continue
             
             if eval_probability:
                 writer = eval_writer if random.random() < eval_probability else train_writer
@@ -199,11 +204,13 @@ def maketfRecordsFromConfig(configs,filename,image_output_folder,downscale_targe
             if route in duplicated_images:
                 labels = [route+'_mod.tif']
                 labels+=[r+'_mod.tif' for r in duplicates if r.startswith(route)]
-                out=convertImageToInstance(folder, route+'.tif', labels, image_output_folder,
+                out = convertImageToInstance(folder, route+'.tif', labels, 
+                                             image_output_folder, class_name,
                                            downscale_targetSize=downscale_targetSize,
                                            split_targetSize=split_targetSize, overlap=overlap)
             else:
-                out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', image_output_folder,
+                out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', 
+                                             image_output_folder, class_name,
                                            downscale_targetSize=downscale_targetSize,
                                            split_targetSize=split_targetSize, overlap=overlap)
             if out and type(out) is list:
@@ -270,7 +277,8 @@ def convertImageAndXMLToInstance(folder,imageFile,xml_file,image_output_folder,
 
     
 
-def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgroundIsWhite=True,
+def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,
+                           class_name,backgroundIsWhite=True,
                            downscale_targetSize=None,split_targetSize=None,overlap=None):
     if backgroundIsWhite:
         npFunc=lambda x: 255*np.ones(x,dtype=np.uint8)
@@ -278,7 +286,11 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
     else:
         npFunc = lambda x: np.zeros(x,dtype=np.uint8)
         minmaxFunc = lambda x: np.max(x, axis=0)
-    img=cv2.cvtColor(cv2.imread(os.path.join(folder,imageFile)),cv2.COLOR_RGB2GRAY)
+    try:
+        img=cv2.cvtColor(cv2.imread(os.path.join(folder,imageFile)),cv2.COLOR_RGB2GRAY)
+    except:
+        print(imageFile)
+        raise
     if type(labelFile) is str:
         if os.path.isfile(os.path.join(folder,labelFile)):
             demarc=cv2.cvtColor(cv2.imread(os.path.join(folder,labelFile)),cv2.COLOR_RGB2GRAY)
@@ -315,7 +327,7 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,backgr
     for count, (split_img, split_mask) in enumerate(zip(split_images,split_masks)):
         suffix = f'_split_{count+1}_of_{len(split_images)}'
         jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
-        examples.append(getExampleFromImage(split_img, split_mask, jpgPath))
+        examples.append(getExampleFromImage(split_img, split_mask, jpgPath, class_name))
         
     return examples
  
@@ -401,7 +413,7 @@ def getExampleFromImageAndBox(img,boxes,classes_text,jpgPath):
         
     return tf.train.Example(features=tf.train.Features(feature=data))
     
-def getExampleFromImage(img,mask,jpgPath):
+def getExampleFromImage(img,mask,jpgPath,class_name):
 
     
     #remove the 3 pixels near each border, so no object touches the border
@@ -421,7 +433,7 @@ def getExampleFromImage(img,mask,jpgPath):
             ymins.append(stats[x,1]/height)
             ymaxs.append((stats[x,1]+stats[x,3])/height)
             classes.append(1)
-            classes_text.append('PSD'.encode('utf8'))
+            classes_text.append(class_name.encode('utf8'))
 
     img = cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
     #Normalize image to use whole 8bit space

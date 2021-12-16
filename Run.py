@@ -11,7 +11,6 @@ import sys, os, re
 import shutil
 from PyQt5.QtWidgets import (
     QWidget,
-    QAction,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -25,13 +24,15 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QListWidget,
     QFileDialog,
-    QAbstractItemView
-    
+    QAbstractItemView,
+    QMessageBox
 )
 from PyQt5.QtCore import Qt
+from absl import flags
 
+from modifiedObjectDetection.model_main_tf2 import main as trainModel
 from utils.makeTFRecords import maketfRecords
-from utils.utils import getCheckpoints, getNetworks
+from utils.utils import getNetworkList
 
 #Default Values
 downscale_targetsize=2048
@@ -39,6 +40,7 @@ split_targetsize=1080
 overlap=0
 eval_probability=0.15
 min_score=0.15
+checkpoint_every=2000
 
 MODELFOLDER = os.path.join(os.path.dirname(os.path.realpath(__file__)),'models')
 
@@ -47,15 +49,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Helper for automated imaging")
         layout=QVBoxLayout()
-        buttonConfigure=QPushButton("Configure Prediction for SerialEM")
-        buttonConfigure.clicked.connect(lambda x: self.open_window(ConfigureWindow))
-        layout.addWidget(buttonConfigure)
         buttonImport=QPushButton("Import Images for Training")
         buttonImport.clicked.connect(lambda x: self.open_window(ImportWindow))
         layout.addWidget(buttonImport)
         buttonTraining = QPushButton("Perform Training")
         buttonTraining.clicked.connect(lambda x: self.open_window(TrainingWindow))
         layout.addWidget(buttonTraining)
+        buttonBoard=QPushButton("See Training result in TensorBoard")
+        buttonBoard.clicked.connect(lambda x: self.open_window(TensorBoardWindow))
+        layout.addWidget(buttonBoard)
         
         widget = QWidget()
         widget.setLayout(layout)
@@ -77,12 +79,6 @@ class SubWindow(QMainWindow):
         self.parent.show()
         super().closeEvent(event)
 
-class ConfigureWindow(SubWindow):
-    def __init__(self,parent):
-        super().__init__(parent)
-        txt=QLabel('st')
-        self.setCentralWidget(txt)
-    
 
 class ImportWindow(SubWindow):
     def __init__(self,parent):
@@ -147,7 +143,7 @@ class ImportWindow(SubWindow):
             self.makeFrom='Darea'
             self.addButton.clicked.connect(self.addConfig)
         elif idx==1:
-            self.makeFrom='labelImg'
+            self.makeFrom='XML'
             self.addButton.clicked.connect(self.addFolder)
         elif idx==2:
             self.makeFrom='folder'
@@ -196,22 +192,26 @@ class ImportWindow(SubWindow):
                         split_targetSize=split_targetsize, overlap=overlap,
                         eval_probability=eval_probability, 
                         progressHandle=self.progress, app=app)
-        shutil.rmtree(outputFolder)
+        shutil.rmtree(outputFolder) #Delete folder with temp .jpg images
 
 class TrainingWindow(SubWindow):
     def __init__(self,parent):
         super().__init__(parent)
+        self.networks = getNetworkList(MODELFOLDER)
+        if len(self.networks) == 0:
+            QMessageBox.about(self, "No networks found",
+                              "Training can only be started from an existing network.\n" \
+                              "Please refer to the manual!")
+            self.close()
+            return
+
         self.setWindowTitle('Perform Training')
-        networks=getNetworks(MODELFOLDER)
         self.tfRecord=''
         self.tfRecordEval=''
         #Still need to write UI for following!!
         self.label_map_path = 'label_map.pbtxt'
-        self.num_steps = 120 #250000
-        
-        #ToDo: Deal with 0 or 1 network types
-        # Deal with 0 checkpoints
-        
+        self.num_steps = 250000
+
         layoutMain = QVBoxLayout()
         
         l_tfRec=QHBoxLayout()
@@ -221,26 +221,36 @@ class TrainingWindow(SubWindow):
         l_tfRec.addWidget(self.sel_tfRec)
         layoutMain.addLayout(l_tfRec)
         
-        l_networks=QHBoxLayout()
-        l_networks.addWidget(QLabel('Neural Network Type'))
-        self.network_select = QComboBox()
-        for n in networks:
-            self.network_select.addItem(n)
-        self.network_select.currentTextChanged.connect(self.changeNetwork)
-        l_networks.addWidget(self.network_select)
-        layoutMain.addLayout(l_networks)
         
         l_continue = QHBoxLayout()
-        l_continue.addWidget(QLabel('Continue Training From'))
-        checkpoints = getCheckpoints(MODELFOLDER,self.network_select.currentText())
+        continue_TT = 'Select the network from which to continue from\n.' 
+        continue_label = QLabel('Continue Training From')
+        continue_label.setToolTip(continue_TT)
+        l_continue.addWidget(continue_label)
         self.continue_from = QComboBox()
-        self.continue_from.addItems(checkpoints)
+        self.continue_from.addItems([n[0] for n in self.networks])
+        self.continue_from.setToolTip(continue_TT)
         l_continue.addWidget(self.continue_from)
         layoutMain.addLayout(l_continue)
         
+        l_trainsteps = QHBoxLayout()
+        trainsteps_TT = 'Select number of training steps'
+        trainsteps_label = QLabel('Number of training steps')
+        trainsteps_label.setToolTip(trainsteps_TT)
+        steps_edit = QLineEdit(str(self.num_steps))
+        steps_edit.setToolTip(trainsteps_TT)
+        steps_edit.editingFinished.connect(lambda: self.changeSteps(steps_edit))
+        l_trainsteps.addWidget(trainsteps_label)
+        l_trainsteps.addWidget(steps_edit)
+        layoutMain.addLayout(l_trainsteps)
+        
         l_model_dir = QHBoxLayout()
-        l_model_dir.addWidget(QLabel('Network name'))
+        nameTT = 'Choose a name for your new network'
+        name_label = QLabel('New Network name:')
+        name_label.setToolTip(nameTT)
+        l_model_dir.addWidget(name_label)
         self.nameEdit = QLineEdit()
+        self.nameEdit.setToolTip(nameTT)
         l_model_dir.addWidget(self.nameEdit)
         layoutMain.addLayout(l_model_dir)
         
@@ -259,10 +269,13 @@ class TrainingWindow(SubWindow):
         widget=QWidget()
         widget.setLayout(layoutMain)
         self.setCentralWidget(widget)
-      
-    def changeNetwork(self,text):
-        self.continue_from.clear()
-        self.continue_from.addItems(MODELFOLDER,getCheckpoints(text))
+        
+    def changeSteps(self, edit):
+        if edit.text().isnumeric():
+            self.num_steps = int(edit.text())
+        else:
+            edit.setText(str(self.num_steps))
+    
     def selectTfrecord(self):
      filename = QFileDialog.getOpenFileNames(self,'Select File', filter='Tfrecord dataset (*.tfrecord)')[0][0]
      if filename:
@@ -271,7 +284,7 @@ class TrainingWindow(SubWindow):
         #Exchange first number by ?????
         p=re.compile('.tfrecord-\d+-of-\d+')
         m=p.search(filename)
-        if m and len(filename)==m.span(0)[1]:
+        if m and len(filename)==m.span(0)[1]: 
             nr_digits = int((m.span(0)[1] - m.span(0)[0] - len('.tfrecord--of-'))/2)
             number_index = -2*nr_digits-len('-of-')
             filename = filename[:number_index] + '?' * nr_digits + filename[number_index+nr_digits:]
@@ -288,9 +301,6 @@ class TrainingWindow(SubWindow):
             
 
     def startTraining(self):
-        from model_main_tf2 import main as train
-        from absl import flags
-        
         if not self.tfRecord:
             self.progress.setText('You need to select a dataset!')
             return
@@ -300,74 +310,124 @@ class TrainingWindow(SubWindow):
 
         self.progress.setText('Preparing...')
         app.processEvents()
-        model_dir = os.path.join(MODELFOLDER, self.network_select.currentText(),
-                                 self.nameEdit.text())
+
+        chosen_network = self.networks[self.continue_from.currentIndex()]
+
+        model_name = self.nameEdit.text()
+        model_dir = os.path.join(MODELFOLDER, chosen_network[1], model_name)
         if not os.path.isdir(model_dir):
             os.mkdir(model_dir)
         
-        default_config_file = os.path.join(MODELFOLDER,
-                                           self.network_select.currentText(),
+        default_config_file = os.path.join(MODELFOLDER,chosen_network[1],
                                            'pipeline_default.config') 
         pipeline_file = os.path.join(model_dir, 'pipeline.config')
-        self.makePipelineConfig(default_config_file, pipeline_file)
+        label_map_file = os.path.join(model_dir, 'label_map.pbtxt')
         
-        self.progress.setText('Performing Training...')
+        #TODO: get proper class_names
+        self.makeLabelMap(label_map_file,classes=['PSD']) 
+        
+        self.makePipelineConfig(default_config_file, pipeline_file, label_map_file)
+        
+        self.progress.setText('Performing Training (This may take a long time up to several days)...')
         app.processEvents()
+        checkpoint_every_n = min(checkpoint_every,self.num_steps )
         
-        #flags will be read by train even when not explicitly passed
+        flags.FLAGS.unparse_flags() #Clear FLAGS. Is necessary when running twice.
+        
+        #flags will be read by trainModel even when not explicitly passed
         flags.FLAGS(['model_main_tf2.py', 
                    '--pipeline_config_path', pipeline_file,
-                   '--model_dir', model_dir])
-        train()
+                   '--model_dir', model_dir,
+                   '--checkpoint_every_n', str(checkpoint_every_n),
+                   '--checkpoints_max_to_keep', str(round(self.num_steps/checkpoint_every_n)+1)])
+        trainModel()
         if self.tfRecordEval:
             # Run evaluation (Evaluation is triggered by including
             # checkpoint_dir variable)
             self.progress.setText('Performing Evaluation...')
             app.processEvents()
-            
+            flags.FLAGS.unparse_flags()
             flags.FLAGS(['model_main_tf2.py', 
                    '--pipeline_config_path', pipeline_file,
                    '--model_dir', model_dir, '--checkpoint_dir', model_dir])
-            train()
+            trainModel()
         self.progress.setText('Training completed!')
         app.processEvents()
+        
+    def makeLabelMap(self,label_map_path,classes):
+        with open(label_map_path,'w') as f:
+            for i,c in enumerate(classes):
+                if i>0:
+                    f.write('\n')
+                f.write("item{\n" \
+                        f"\tid: {i+1}\n" \
+                        f"\tname: '{c}'\n" \
+                        "}")
 
-    def makePipelineConfig(self,default_config_file, config_file):
+    def makePipelineConfig(self,default_config_file, config_file, label_map_path):
         #Reads the default_config for the selected model and
         #Changes Values to make it ready for training
         #Then saves modified pipeline.config under config_file path
-        
-        checkpoint = os.path.join(MODELFOLDER,self.network_select.currentText(),
-                                  self.continue_from.currentText())
-        
+        chosen_network = self.networks[self.continue_from.currentIndex()]
+        checkpoint = os.path.join(MODELFOLDER,chosen_network[1],chosen_network[2])
         
         with open(default_config_file,'r') as f:
             text = f.read()
-            
-        text = text.replace('label_map_path: "PATH_TO_LABELMAP"',
-                     f'label_map_path: "{self.label_map_path}"')
+        
+        # Better would be to use regex, but difficult because both identifiers are called input_path
         text = text.replace('input_path: "INPUT_PATH.tfrecord"',
                      f'input_path: "{self.tfRecord}"')
         if self.tfRecordEval:
             text = text.replace('input_path: "EVAL_PATH.tfrecord"',
                          f'input_path: "{self.tfRecordEval}"')
-        text = text.replace('fine_tune_checkpoint: "PATH_TO_CHECKPOINT"',
-                     f'fine_tune_checkpoint: "{checkpoint}"')
+            
+        # text = text.replace('label_map_path: "PATH_TO_LABELMAP"',
+        #              f'label_map_path: "{label_map_path}"')
+        # text = text.replace('fine_tune_checkpoint: "PATH_TO_CHECKPOINT"',
+        #              f'fine_tune_checkpoint: "{checkpoint}"')
         
-        #This would be better with regex in case the val is changed in the default
-        text = text.replace('total_steps: 250000',
-                     f'total_steps: {self.num_steps}')
-        text = text.replace('num_steps: 250000',
-                     f'num_steps: {self.num_steps}')
+
+        replacements = [
+                        ['total_steps: ', '(\d+)', f'{self.num_steps}'],
+                        ['num_steps: ', '(\d+)', f'{self.num_steps}'],
+                        ['label_map_path: ', '[^\n]*', f'"{label_map_path}"'],
+                        ['fine_tune_checkpoint: ', '[^\n]*', f'"{checkpoint}"']
+                        ]
+        
+        for to_replace, regex_code, replacement  in replacements:
+            p=re.compile(to_replace+regex_code)
+            m = p.search(text)
+            if m:
+                text = text.replace(m.group(), to_replace+replacement)
+       
+        # text = text.replace('total_steps: 250000',
+        #              f'total_steps: {self.num_steps}')
+        # text = text.replace('num_steps: 250000',
+        #              f'num_steps: {self.num_steps}')
         #Warmup steps need to be less than total steps
         p = re.compile('warmup_steps: (\d+)')
         m = p.search(text)
         if m and int(m.group(1)) > self.num_steps:
-            text = text.replace(f'warmup_steps: {m.group(1)}',
+            text = text.replace(m.group(),
                                 f'warmup_steps: {int(self.num_steps/2)}')
         
         with open(config_file,'w') as f:
             f.write(text)
+
+class TensorBoardWindow(SubWindow):
+    def __init__(self,parent):
+        from tensorboard import program
+        super().__init__(parent)
+
+        tb = program.TensorBoard()
+        tb.configure(argv = [None, '--logdir', MODELFOLDER])
+        url = tb.launch()
+        
+        link = QLabel('<a href="'+url+'">Click to view results!</a>')
+        link.setOpenExternalLinks(True)
+
+        self.setCentralWidget(link)
+        
 
 def processTfRecordFilename(filename):
     #Removes _eval and _train extensions as well as 
@@ -381,7 +441,6 @@ def processTfRecordFilename(filename):
         filename = filename[0:m.span(0)[0]+len('.tfrecord')]
     return filename             
         
-
 
 app = QApplication(sys.argv)
 w = MainWindow()
