@@ -94,6 +94,7 @@ def main(args=None):
         image_paths, output_paths, all_image_names = getImagePaths(args)
         while True:
             time_before_loop = time.time()
+            time.sleep(0.5) #Just to be sure that the last image has been fully saved
             coordinates = predictionLoop(args, detection_model, image_paths,
                                          output_paths, coordinates)
             time_spent_in_loop = time.time()-time_before_loop
