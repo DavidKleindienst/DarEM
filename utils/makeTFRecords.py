@@ -101,6 +101,7 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                 labels = [route+'_mod.tif']
                 labels += [r+'_mod.tif' for r in duplicates if r.startswith(route)]
                 out = convertImageToInstance(folder, route+'.tif', labels, image_output_folder,
+                                             class_name,
                                            downscale_targetSize=downscale_targetSize,
                                            split_targetSize=split_targetSize, overlap=overlap)
             else:

@@ -87,6 +87,7 @@ class ImportWindow(SubWindow):
         self.makeFrom='Darea'
         self.configs=[]
         self.tfRecord=''
+        self.eval_probability=eval_probability
         layoutMain = QVBoxLayout()
         layoutFrom=QHBoxLayout()
         
@@ -114,6 +115,19 @@ class ImportWindow(SubWindow):
         layout.addLayout(layout2)
         layoutMain.addLayout(layout)
         
+        l_feat=QHBoxLayout()
+        l_feat.addWidget(QLabel('Name of feature (e.g. Active Zone)'))
+        self.feat_edit = QLineEdit('')
+        l_feat.addWidget(self.feat_edit)
+        layoutMain.addLayout(l_feat)
+        
+        l_eval=QHBoxLayout()
+        l_eval.addWidget(QLabel('Ratio of Images used for Evaluation'))
+        eval_edit = QLineEdit(str(self.eval_probability))
+        eval_edit.editingFinished.connect(lambda: self.changeEvalProb(eval_edit))
+        l_eval.addWidget(eval_edit)
+        layoutMain.addLayout(l_eval)
+        
         l_save=QHBoxLayout()
         l_save.addWidget(QLabel('Save dataset as'))
         self.saveFileButton=QPushButton("Select File...")
@@ -136,6 +150,24 @@ class ImportWindow(SubWindow):
         widget=QWidget()
         widget.setLayout(layoutMain)
         self.setCentralWidget(widget)
+    def changeEvalProb(self, edit):
+        try: 
+            nr=float(edit.text())
+        
+        except:
+            edit.setText(str(self.eval_probability)) 
+            return
+        
+        if nr<0:
+            pass
+        elif nr<=1:
+            self.eval_probability = nr
+            return
+        elif nr>1 and nr<=100:
+            self.eval_probability = nr/100
+
+        edit.setText(str(self.eval_probability))    
+    
     def changeInputType(self,idx):
         self.listbox.clear()
         self.addButton.clicked.disconnect()
@@ -187,10 +219,12 @@ class ImportWindow(SubWindow):
         app.processEvents()
         outputFolder=os.path.splitext(self.tfRecord)[0]  
         
+        
         maketfRecords(self.makeFrom,self.configs, self.tfRecord, outputFolder,
                         downscale_targetSize=downscale_targetsize,
                         split_targetSize=split_targetsize, overlap=overlap,
-                        eval_probability=eval_probability, 
+                        class_name=self.feat_edit.text(),
+                        eval_probability=self.eval_probability, 
                         progressHandle=self.progress, app=app)
         shutil.rmtree(outputFolder) #Delete folder with temp .jpg images
 
