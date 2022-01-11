@@ -5,7 +5,7 @@ Created on Mon Aug  2 15:38:37 2021
 
 @author: David Kleindienst
 """
-import os, cv2, io, math, random, time
+import os, cv2, io, math, random, time, asyncio
 import tensorflow as tf
 import tensorflow.compat.v1 as tfv1
 import numpy as np
@@ -14,7 +14,6 @@ from PIL import Image
 from object_detection.utils import dataset_util
 
 from utils import utils
-
 
 
 def maketfRecords(input_type,input_items, filename, image_output_folder, 
@@ -81,6 +80,8 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
             
         else:
             raise ValueError(f'Input type {input_type} not known. Allowed input_types are "Darea", "folder" and "XML"')
+        
+        random.shuffle(routes)
     
         for route in routes:
             if progressHandle is not None and app is not None:
@@ -277,7 +278,6 @@ def convertImageAndXMLToInstance(folder,imageFile,xml_file,image_output_folder,
     return examples
 
     
-
 def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,
                            class_name,backgroundIsWhite=True,
                            downscale_targetSize=None,split_targetSize=None,overlap=None):
