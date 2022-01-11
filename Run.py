@@ -32,7 +32,7 @@ from absl import flags
 
 from modifiedObjectDetection.model_main_tf2 import main as trainModel
 from utils.makeTFRecords import maketfRecords
-from utils.utils import getNetworkList
+from utils import utils 
 
 #Default Values
 downscale_targetsize=2048
@@ -219,7 +219,6 @@ class ImportWindow(SubWindow):
         app.processEvents()
         outputFolder=os.path.splitext(self.tfRecord)[0]  
         
-        
         maketfRecords(self.makeFrom,self.configs, self.tfRecord, outputFolder,
                         downscale_targetSize=downscale_targetsize,
                         split_targetSize=split_targetsize, overlap=overlap,
@@ -231,7 +230,7 @@ class ImportWindow(SubWindow):
 class TrainingWindow(SubWindow):
     def __init__(self,parent):
         super().__init__(parent)
-        self.networks = getNetworkList(MODELFOLDER)
+        self.networks = utils.getNetworkList(MODELFOLDER)
         if len(self.networks) == 0:
             QMessageBox.about(self, "No networks found",
                               "Training can only be started from an existing network.\n" \
@@ -242,6 +241,7 @@ class TrainingWindow(SubWindow):
         self.setWindowTitle('Perform Training')
         self.tfRecord=''
         self.tfRecordEval=''
+        self.label_map=''
         #Still need to write UI for following!!
         self.label_map_path = 'label_map.pbtxt'
         self.num_steps = 250000
@@ -326,12 +326,19 @@ class TrainingWindow(SubWindow):
         if '_train.tfrecord' in filename:
             self.tfRecord = filename
             self.tfRecordEval = filename.replace('_train.tfrecord', '_eval.tfrecord')
+            label_map=filename.replace('_train.tfrecord', '.pbtxt')
+            
         elif '_eval.tfrecord' in filename:
             self.tfRecordEval = filename
             self.tfRecord = filename.replace('_eval.tfrecord', '_train.tfrecord')
+            label_map=filename.replace('_eval.tfrecord', '.pbtxt')
         else:
             self.tfRecord = filename
             self.tfRecordEval = ''
+            label_map=filename.replace('.tfrecord', '.pbtxt')
+         
+        if os.path.isfile(label_map):
+            self.label_map = label_map
             
 
     def startTraining(self):
@@ -355,10 +362,13 @@ class TrainingWindow(SubWindow):
         default_config_file = os.path.join(MODELFOLDER,chosen_network[1],
                                            'pipeline_default.config') 
         pipeline_file = os.path.join(model_dir, 'pipeline.config')
+        
         label_map_file = os.path.join(model_dir, 'label_map.pbtxt')
         
-        #TODO: get proper class_names
-        self.makeLabelMap(label_map_file,classes=['PSD']) 
+        if self.label_map:
+            shutil.copyfile(self.label_map,label_map_file)
+        else:
+            utils.makeLabelMap(label_map_file,classes=['Detection']) 
         
         self.makePipelineConfig(default_config_file, pipeline_file, label_map_file)
         
@@ -388,15 +398,6 @@ class TrainingWindow(SubWindow):
         self.progress.setText('Training completed!')
         app.processEvents()
         
-    def makeLabelMap(self,label_map_path,classes):
-        with open(label_map_path,'w') as f:
-            for i,c in enumerate(classes):
-                if i>0:
-                    f.write('\n')
-                f.write("item{\n" \
-                        f"\tid: {i+1}\n" \
-                        f"\tname: '{c}'\n" \
-                        "}")
 
     def makePipelineConfig(self,default_config_file, config_file, label_map_path):
         #Reads the default_config for the selected model and
@@ -404,6 +405,9 @@ class TrainingWindow(SubWindow):
         #Then saves modified pipeline.config under config_file path
         chosen_network = self.networks[self.continue_from.currentIndex()]
         checkpoint = os.path.join(MODELFOLDER,chosen_network[1],chosen_network[2])
+        
+        checkpoint=checkpoint.replace('\\','/')
+        label_map_path=label_map_path.replace('\\','/')
         
         with open(default_config_file,'r') as f:
             text = f.read()

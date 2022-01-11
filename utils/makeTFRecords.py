@@ -26,6 +26,12 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
     '''
     if class_name is None and input_type != 'XML':
         raise ValueError(f'class_name needs to be provided for input_type {input_type}!')
+    elif input_type != 'XML':
+        label_map_path = filename.replace('.tfrecord','.pbtxt')
+        if type(class_name) is str:
+            utils.makeLabelMap(label_map_path,[class_name])
+        else:
+            utils.makeLabelMap(label_map_path,class_name)
     
     start=time.time()
     

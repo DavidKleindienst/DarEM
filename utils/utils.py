@@ -9,6 +9,16 @@ Created on Tue Aug 10 17:31:04 2021
 import os, cv2, math
 import numpy as np
 
+def makeLabelMap(label_map_path,classes):
+    with open(label_map_path,'w') as f:
+        for i,c in enumerate(classes):
+            if i>0:
+                f.write('\n')
+            f.write("item{\n" \
+                    f"\tid: {i+1}\n" \
+                    f"\tname: '{c}'\n" \
+                    "}")
+
 
 def getNetworkList(modelfolder):
     '''Returns an array containing all available checkpoints for each network type.
