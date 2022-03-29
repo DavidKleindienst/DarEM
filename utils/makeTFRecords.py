@@ -20,7 +20,8 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                   class_name=None,
                   downscale_targetSize=None, split_targetSize=None,
                   eval_probability=0.15, overlap=None,
-                  progressHandle=None, app=None):
+                  progressHandle=None, app=None,
+                  onlyImagesWithObjects=False):
     '''
     input type can be Darea, folder or XML
     '''
@@ -108,7 +109,7 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                 labels = [route+'_mod.tif']
                 labels += [r+'_mod.tif' for r in duplicates if r.startswith(route)]
                 out = convertImageToInstance(folder, route+'.tif', labels, image_output_folder,
-                                             class_name,
+                                             class_name, onlyImagesWithObjects=onlyImagesWithObjects,
                                            downscale_targetSize=downscale_targetSize,
                                            split_targetSize=split_targetSize, overlap=overlap)
             else:
@@ -118,13 +119,15 @@ def maketfRecords(input_type,input_items, filename, image_output_folder,
                                                  image_output_folder,
                                                  downscale_targetSize=downscale_targetSize,
                                                  split_targetSize=split_targetSize,
-                                                 overlap=overlap)
+                                                 overlap=overlap, 
+                                                 onlyImagesWithObjects=onlyImagesWithObjects)
                 else:
                     out = convertImageToInstance(folder,route+'.tif', route+'_mod.tif', 
                                                  image_output_folder, class_name,
                                                  downscale_targetSize=downscale_targetSize,
                                                  split_targetSize=split_targetSize, 
-                                                 overlap=overlap)
+                                                 overlap=overlap,
+                                                 onlyImagesWithObjects=onlyImagesWithObjects)
             if out and type(out) is list:
                 for o in out:
                     if o:
@@ -244,7 +247,8 @@ def maketfRecordsFromConfig(configs,filename,image_output_folder,
         app.processEvents()
 
 def convertImageAndXMLToInstance(folder,imageFile,xml_file,image_output_folder,
-                                 downscale_targetSize=None,split_targetSize=None,overlap=None):
+                                 downscale_targetSize=None,split_targetSize=None,
+                                 overlap=None, onlyImagesWithObjects=False):
     import xml.etree.ElementTree as ET
     img=cv2.cvtColor(cv2.imread(os.path.join(folder,imageFile)),cv2.COLOR_RGB2GRAY)
     
@@ -279,14 +283,16 @@ def convertImageAndXMLToInstance(folder,imageFile,xml_file,image_output_folder,
     for count, (split_img, split_box,split_class) in enumerate(zip(split_images,split_boxes, split_classes)):
         suffix = f'_split_{count+1}_of_{len(split_images)}'
         jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
-        examples.append(getExampleFromImageAndBox(split_img, split_box,split_class, jpgPath))
+        examples.append(getExampleFromImageAndBox(split_img, split_box,split_class, jpgPath,
+                                                  onlyImagesWithObjects=onlyImagesWithObjects))
         
     return examples
 
     
 def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,
                            class_name,backgroundIsWhite=True,
-                           downscale_targetSize=None,split_targetSize=None,overlap=None):
+                           downscale_targetSize=None,split_targetSize=None,
+                           overlap=None, onlyImagesWithObjects=False):
     if backgroundIsWhite:
         npFunc=lambda x: 255*np.ones(x,dtype=np.uint8)
         minmaxFunc = lambda x: np.min(x, axis=0)
@@ -334,12 +340,16 @@ def convertImageToInstance(folder,imageFile,labelFile,image_output_folder,
     for count, (split_img, split_mask) in enumerate(zip(split_images,split_masks)):
         suffix = f'_split_{count+1}_of_{len(split_images)}'
         jpgPath = os.path.join(image_output_folder, imageFile.replace('.tif', suffix+'.jpg'))
-        examples.append(getExampleFromImage(split_img, split_mask, jpgPath, class_name))
+        examples.append(getExampleFromImage(split_img, split_mask, jpgPath, class_name,
+                                            onlyImagesWithObjects=onlyImagesWithObjects))
         
     return examples
  
-def getExampleFromImageAndBox(img,boxes,classes_text,jpgPath):
+def getExampleFromImageAndBox(img,boxes,classes_text,jpgPath,onlyImagesWithObjects=False):
     import pickle
+    
+    if onlyImagesWithObjects and not boxes:
+        return None
     
     #Classes need to remain consistent between calls to this function
     #So its necessary to save and load to disk
@@ -420,7 +430,7 @@ def getExampleFromImageAndBox(img,boxes,classes_text,jpgPath):
         
     return tf.train.Example(features=tf.train.Features(feature=data))
     
-def getExampleFromImage(img,mask,jpgPath,class_name):
+def getExampleFromImage(img,mask,jpgPath,class_name,onlyImagesWithObjects=False):
 
     
     #remove the 3 pixels near each border, so no object touches the border
@@ -432,7 +442,6 @@ def getExampleFromImage(img,mask,jpgPath,class_name):
     height = img.shape[0]
     width = img.shape[1]
     if np.any(mask):
-
         num_objects, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         for x in range(1,num_objects):
             xmins.append(stats[x,0]/width)
@@ -441,6 +450,8 @@ def getExampleFromImage(img,mask,jpgPath,class_name):
             ymaxs.append((stats[x,1]+stats[x,3])/height)
             classes.append(1)
             classes_text.append(class_name.encode('utf8'))
+    elif onlyImagesWithObjects:
+        return None
 
     img = cv2.cvtColor(img,cv2.COLOR_GRAY2RGB)
     #Normalize image to use whole 8bit space

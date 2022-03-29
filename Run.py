@@ -135,6 +135,9 @@ class ImportWindow(SubWindow):
         l_save.addWidget(self.saveFileButton)
         layoutMain.addLayout(l_save)
         
+        self.onlyObj=QCheckBox('Only include images containing objects')
+        layoutMain.addWidget(self.onlyObj)
+        
         l_run=QHBoxLayout()
         startButton=QPushButton('Make')
         startButton.clicked.connect(self.makeRecords)
@@ -224,7 +227,8 @@ class ImportWindow(SubWindow):
                         split_targetSize=split_targetsize, overlap=overlap,
                         class_name=self.feat_edit.text(),
                         eval_probability=self.eval_probability, 
-                        progressHandle=self.progress, app=app)
+                        progressHandle=self.progress, app=app,
+                        onlyImagesWithObjects=self.onlyObj.isChecked())
         shutil.rmtree(outputFolder) #Delete folder with temp .jpg images
 
 class TrainingWindow(SubWindow):
@@ -287,6 +291,9 @@ class TrainingWindow(SubWindow):
         self.nameEdit.setToolTip(nameTT)
         l_model_dir.addWidget(self.nameEdit)
         layoutMain.addLayout(l_model_dir)
+        
+        self.evalOnly=QCheckBox('Perform only evaluation without training')
+        layoutMain.addWidget(self.evalOnly)
         
         l_run=QHBoxLayout()
         startButton=QPushButton('Start')
@@ -372,6 +379,7 @@ class TrainingWindow(SubWindow):
         
         self.makePipelineConfig(default_config_file, pipeline_file, label_map_file)
         
+        
         self.progress.setText('Performing Training (This may take a long time up to several days)...')
         app.processEvents()
         checkpoint_every_n = min(checkpoint_every,self.num_steps )
@@ -384,7 +392,8 @@ class TrainingWindow(SubWindow):
                    '--model_dir', model_dir,
                    '--checkpoint_every_n', str(checkpoint_every_n),
                    '--checkpoints_max_to_keep', str(round(self.num_steps/checkpoint_every_n)+1)])
-        trainModel()
+        if not self.evalOnly.isChecked():
+            trainModel()
         if self.tfRecordEval:
             # Run evaluation (Evaluation is triggered by including
             # checkpoint_dir variable)
