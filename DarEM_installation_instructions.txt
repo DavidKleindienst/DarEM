@@ -1,0 +1,21 @@
+Download visual studio build tools from https://visualstudio.microsoft.com/visual-cpp-build-tools/
+
+In the installer, select "Desktop Development with C++".
+
+Reboot
+
+tf-models-official # Same as tensorflow version
+tensorflow-datasets<=4.8.3 # only if problems occur, default install with tf-models-official can be ok
+
+
+protobuf V3.19 (Unzip and add path to .../bin to PATH)
+
+Download tensorflow object detection API
+
+cd models/research
+protoc object_detection/protos/*.proto --python_out=.
+cp object_detection/packages/tf2/setup.py .
+pip install .
+
+test installation
+python object_detection/builders/model_builder_tf2_test.py
