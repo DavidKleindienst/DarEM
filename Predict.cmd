@@ -1,3 +1,3 @@
 @echo off
 call conda activate Darea
-call python callPrediction.py
+call python Predict.py

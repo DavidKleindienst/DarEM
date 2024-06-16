@@ -24,7 +24,7 @@ from utils import utils
 
 
 
-def main(args=None):
+def predict(args=None):
     WAIT_TIME = 45
     
     parser = argparse.ArgumentParser()
@@ -263,5 +263,5 @@ def filepath_to_name(full_name,remove_Mod=False):
 
 if __name__=='__main__':
     
-    main(None)
+    predict(None)
 

@@ -6,7 +6,7 @@ Created on Thu Oct 15 09:20:26 2020
 """
 import sys
 import os
-import predict
+from prediction.predict import predict
 from utils.utils import getNetworkList
 
 from PyQt5.QtWidgets import (
@@ -121,12 +121,12 @@ def startPrediction(nav, network, wait=False):
     checkpoint_name = os.path.join(modelfolder, network[1], network[2])
     
     if wait:
-        predict.main(['--pipeline_path', pipeline_config,
+        predict(['--pipeline_path', pipeline_config,
                       '--checkpoint_path', checkpoint_name,
                       '--navfile', nav, '--wait'])
 
     else:
-        predict.main(['--pipeline_path', pipeline_config,
+        predict(['--pipeline_path', pipeline_config,
                       '--checkpoint_path', checkpoint_name,
                       '--navfile', nav])
 
