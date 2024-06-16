@@ -11,6 +11,7 @@ Install the following prerequisites
     - Using other ways to create virtual python environements is possible, but our installation instructions are based on conda
  * gcc
     - Run `sudo apt install gcc` in a terminal
+ * [Protobuf V3.19](https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4)
 
 Open a terminal and run
 ```bash
@@ -62,5 +63,10 @@ To run DarEM doubleclick on Train.cmd for training or Predict.cmd for Prediction
 
 ## Citation
 If you've used this software for your research, please cite
+
+David Kleindienst, Tommaso Costanzo, Ryuichi Shigemoto.
+Automated Imaging and Analysis of Synapses in Freeze-Fracture Replica Samples with Deep Learning.
+*Neuromethods, Vol. 212*, Joachim Lübke and Astrid Rollenhagen (Eds)
+in Press
 
 ...
