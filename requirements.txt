@@ -1,0 +1,4 @@
+tensorflow==2.5.1
+tf-models-official==2.5.1
+keras==2.5rc0
+pyqt5==5.12.3
