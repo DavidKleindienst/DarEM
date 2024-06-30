@@ -1,0 +1,183 @@
+MacroName Acquire_Tilt_Series
+# IST Austria 2020 Tommaso Costanzo
+
+########## SETTINGS ########## 
+
+
+## In brackets are the angles to collect images separated by spaces
+
+tiltAngles = {-24.5 -12.2 0 12.2 24.5}
+
+# -----------------------------------------------------------
+
+
+## MAGNIFICATION AND BEAM SETTING (for HM tomo)
+
+hm_mag  = 21000     # magnification
+hm_C2      =  38.9            # Intensity C2 value in %
+
+# ------------------------------------------------------------
+
+
+# DELAY AFTER TILTING
+# this is microscope/camera-specific.
+
+tilt_delay = 200
+
+########## END SETTINGS ########## 
+
+ReportNavFile 1
+dir = $ReportedValue3
+Echo $dir
+nav = $reportedValue1$reportedValue2
+
+Read2DTextFile var $nav
+
+shiftxtext = $var[$#var-1][1]
+shiftytext = $var[$#var][1]
+
+CompareStrings shiftxtext ShiftX
+isX = $reportedValue1
+CompareStrings shiftytext ShiftY
+isY = $reportedValue1
+
+shiftx = $var[$#var-1][3]
+shifty = $var[$#var][3]
+
+
+# start Script
+
+ArrayStatistics tiltAngles
+tilttimes = $ReportedValue1
+#Echo $tilttimes
+
+ReportFocus foc1
+
+ReportTargetDefocus def1
+
+#ReportSpotSize spot
+
+NoMessageBoxOnError 1
+
+ReportNavItem
+
+# generate file names
+filename = $dir\$navLabel_hm.st
+
+
+# Echo $filename
+
+OpenNewFile $filename
+
+
+# Set HM microscope state
+
+SetMag $hm_mag
+SetPercentC2 $hm_C2
+#SetSpotSize $spot
+
+# run high-mag quick tomo
+
+CallFunction quickHMTomo-nav_AF
+
+
+# ================================================
+# ================================================
+# ================================================
+
+Function quickHMTomo-nav_AF
+# EMBL Heidelberg 2016  Martin Schorb
+
+
+ResetAccumShift 
+ResetImageShift 
+
+MoveToNavItem 
+
+#Eucentricity 1
+#UpdateItemZ
+CallFunction ZwithG
+
+ResetAccumShift
+ResetImageShift 
+
+# Realign after Eucentricity for better precision
+RealignToNavItem 1
+
+if $isX == 0 AND $isY == 0
+   MoveStage $shiftx $shifty 
+endif
+
+WalkUpTo $tiltAngles[1]
+R
+Copy A O
+
+DoLoop idx 2 $tilttimes
+    # Autofocus
+    G
+    G
+    AlignTo O
+
+    # acquire tilt image
+    R
+    S
+    Copy A O
+    TiltTo $tiltAngles[$idx]
+    Delay $tilt_delay
+    if $idx == $tilttimes
+        G
+        G
+        AlignTo O
+
+        # acquire tilt image
+        R
+        S
+    endif
+EndLoop
+
+ResetAccumShift
+
+TiltTo 0
+
+CloseFile
+
+EndFunction 
+
+
+##############################################################
+Function ZwithG
+#
+# Do eucentricity by measuring defocus
+#
+#----------------------------------------------------------
+# Settings
+#
+# Set the offset between standard focus and holder eucentricity
+# This offset can be measured by doing fine eucentricity and then 
+# measuring the defocuse with the OBJ at standard focus
+
+offset = -0.55
+
+#-------  END SETTINGS -----------------------------------------
+
+Echo Running function Z with autofocus
+
+SetEucentricFocus
+
+Loop 2
+   G -1
+   ReportAutofocus
+   t  =  -1 * $reportedValue1 + $offset
+   if $t >= 0
+      changeZ = $t + 3
+      MoveStage 0 0 $changeZ
+      MoveStage 0 0 -3
+   elseif $t <= 0
+      MoveStage 0 0 $t
+   endif
+   echo --> Z moved $t micron
+EndLoop
+
+UpdateItemZ
+
+EndFunction
