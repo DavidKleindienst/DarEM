@@ -83,20 +83,20 @@ ensure [pyEM](https://github.com/asarnow/pyem/tree/master) is installed. You wil
 ### Acquiring a map
 Use *File -> New Montage...* to acquire an overview image of the whole replica. Example setting that we've used:
 
-<img src="screenshots_readme/OverviewSetup1.png" height="400"/> <img src="screenshots_readme/OverviewSetup2.png" height="400"/> 
+<img src="screenshots_readme/OverviewSetup1.png" height="450"/> <img src="screenshots_readme/OverviewSetup2.png" height="450"/> 
 
 You should obtain an overview image of your replica such as this.
 
-<img src="screenshots_readme/Overview.png" height="500"/>
+<img src="screenshots_readme/Overview.png" height="550"/>
 
 Open the navigator panel with *Navigator -> Open*. Your overview image should alread be contained in the list. Click add points and add a point on an easily recognizable structure (we usually use folds or holes of the replica). Find the same structure at the resolution that you would like to use to search for your profiles of interest and click on it to add the green marker. Then apply *Navigator -> Shift to Marker* (select *All items at the registration of the image with m* in the dialogue box) to register the shift in x/y coordinates between the resolution used on the overview image and the resolution used for acquiring the map
 
-<img src="screenshots_readme/PointOnLandmark.png" width="650"/><br>
-<img src="screenshots_readme/PointOnLandmarkZoom.png" width="650"/>
+<img src="screenshots_readme/PointOnLandmark.png" width="750"/><br>
+<img src="screenshots_readme/PointOnLandmarkZoom.png" width="750"/>
 
 In the navigator panel select add polygon and draw a polygon around your area of interest. Save the navigator file (*Navigator -> Save*) in the same folder where you will save your images. Set up a polygon montage (*Navigator -> Montaging & Grids -> Setup Polygon Montage*) using setting similar to the following
 
-<img src="screenshots_readme/SetupPolygonMontage2.png" height="400"/> <img src="screenshots_readme/SetupPolygonMontage3.png" height="300"/> 
+<img src="screenshots_readme/SetupPolygonMontage2.png" height="450"/> <img src="screenshots_readme/SetupPolygonMontage3.png" height="450"/> 
 
 When given the choice to make a map from the montage, answer *Yes*. The montage will now be taken, which may take a while. If you perform the profile detection on a different PC, you can run the profile detection in parallel to the image acquisition (be sure to save your images to a folder that you can access from both PCs in this case). Otherwise (you intend to use your camera PC fro profile detection), please wait for the acquisition to finish before you proceed.
 
@@ -113,7 +113,7 @@ You should now see your map with points annotating the found profiles
 
 You can zoom in to verify that the detections correspond to profiles of interest
 
-<img src="screenshots_readme/MapWithPointZoom.png" height="500"/>
+<img src="screenshots_readme/MapWithPointZoom.png" height="550"/>
 
 Open *Navigator -> Acquire at Items* to start the tilt_series of all selected points using the *Acquire_Tilt_Series.txt* script
 
