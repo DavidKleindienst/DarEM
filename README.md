@@ -105,7 +105,17 @@ When given the choice to make a map from the montage, answer *Yes*. The montage 
 ...
 
 ### Acquiring tilt series of the profiles of interest
-...
+Use the coords2pts.py script to generate a new .nav file (will be called [your_nav_file_name]_with_points.nav). Close the current file with *File->Close* then use *Navigator->Read & Open...* to read the newly generated navigator file.
+
+You should now see your map with points annotating the found profiles
+
+<img src="screenshots_readme/MapWithPoints.png" height="400"/>
+
+You can zoom in to verify that the detections correspond to profiles of interest
+
+<img src="screenshots_readme/MapWithPointZoom.png" height="400"/>
+
+Open *Navigator -> Acquire at Items* to start the tilt_series of all selected points using the *Acquire_Tilt_Series.txt* script
 
 ### Training DarEM for deteting relevant profiles
 Please acquire low-res maps as described [above](#acquiring-a-low-res-map), which will serve as training images. Please refer to our boock chapter linked [below](#citation) for instructions on how to annotate the images and train the deep neural network.
