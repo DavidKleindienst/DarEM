@@ -2,24 +2,28 @@
 
 ## Installation
 
+Note: the last supported python version is 3.9 as Tensorflow 2.5.1 is not available on later python versions
+
 ### Linux
 Install the following prerequisites
 
- * [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
+ * [CUDA Toolkit 11](https://developer.nvidia.com/cuda-toolkit)
     - Required for training or fast prediction on a GPU. Not necessary for slow prediction on a CPU
  * [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) 
     - Using other ways to create virtual python environements is possible, but our installation instructions are based on conda
  * gcc
     - Run `sudo apt install gcc` in a terminal
  * [Protobuf V3.19](https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4)
+ * git
+    - Run `sudo apt install git` in a terminal
 
 Open a terminal and run
 ```bash
 conda create -n DarEM python==3.9 cudnn
 conda activate DarEM
 git clone https://github.com/tensorflow/models.git
-git checkout 457bcb8595903331932e2faf95bec8ba69e04688
 cd models/research
+git checkout 457bcb8595903331932e2faf95bec8ba69e04688
 protoc object_detection/protos/*.proto --python_out=.
 cp object_detection/packages/tf2/setup.py .
 pip install .
@@ -33,23 +37,30 @@ To run DarEM run on `python Train.py` for training or `python Predict.py` for Pr
 
 ### Windows
 Ensure the following prerequisites are installed:
- * [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
+ * [CUDA Toolkit 11](https://developer.nvidia.com/cuda-11-8-0-download-archive)
     - Required for training or fast prediction on a GPU. Not necessary for slow prediction on a CPU
  * [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) 
     - Using other ways to create virtual python environements is possible, but our installation instructions are based on conda
  * [Protobuf V3.19](https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4)
+    - Download `protoc-3.19.4-win64.zip` on 64-bit Windows or `protoc-3.19.4-win32.zip` on 32-bit Windows
     - Unzip the downloaded file and add the path to /bin to your PATH environment variable
  * [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
     - In the installer, select "Desktop Development with C++".
     - A reboot may be required
+ * [Git](https://git-scm.com/downloads)
+
+Ensure that the conda command is available in powershell
+If not open Anaconda prompt and run `conda init powershell`, then open a new powershell. 
+If conda is still not available, you need to allow execution of powershell scripts. Open an adminstrator powershell and run `Set-ExecutionPolicy RemoteSigned`. After you open a new powershell, the conda command should now be available
 
 Open a new powershell and run
+
 ```powershell
-conda create -n DarEM python==3.9 cudnn
+conda create -n DarEM python==3.9 cudnn=8.2
 conda activate DarEM
 git clone https://github.com/tensorflow/models.git
-git checkout 457bcb8595903331932e2faf95bec8ba69e04688
 cd models/research
+git checkout 457bcb8595903331932e2faf95bec8ba69e04688
 protoc object_detection/protos/*.proto --python_out=.
 cp object_detection/packages/tf2/setup.py .
 pip install .
