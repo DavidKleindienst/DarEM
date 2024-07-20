@@ -87,7 +87,7 @@ ensure [pyEM](https://github.com/asarnow/pyem/tree/master) is installed. You wil
 * tilt_angles
    * A list of tilt angles at which the images should be taken
    * The default is -24.5, -12.2, 0, 12.2, 24.5
-   * Please ensure to not take more extreme angles than your microscope setup permits
+   * Ensure to not take more extreme angles than your microscope setup permits
 
 ## Usage
 
@@ -109,11 +109,13 @@ In the navigator panel select add polygon and draw a polygon around your area of
 
 <img src="screenshots_readme/SetupPolygonMontage2.png" height="450"/> <img src="screenshots_readme/SetupPolygonMontage3.png" height="450"/> 
 
-When given the choice to make a map from the montage, answer *Yes*. The montage will now be taken, which may take a while. If you perform the profile detection on a different PC, you can run the profile detection in parallel to the image acquisition (be sure to save your images to a folder that you can access from both PCs in this case). Otherwise (you intend to use your camera PC fro profile detection), please wait for the acquisition to finish before you proceed.
+When given the choice to make a map from the montage, answer *Yes*. The montage will now be taken, which may take a while. If you perform the profile detection on a different PC, you can run the profile detection in parallel to the image acquisition (be sure to save your images to a folder that you can access from both PCs in this case). Otherwise (you intend to use your camera PC for profile detection), please wait for the acquisition to finish before you proceed.
 
 
 ### Automatically detecting profiles of interest
-...
+When running profile detection from the camera PC, you should be able to select the script for profile detection in the tools window. Running it will open a window where you specify the network you would like to use for the prediction (e.g. you may have different trained networks for detecting different kinds of profiles). The location of your files will be automatically passed to the script. 
+
+When running it on a different PC please open the Prediction Menu and select the appripriate .nav file and the network you would like to use. This prediction can run in parallel to the imaging and will wait for new images to be saved when necessary.
 
 ### Acquiring tilt series of the profiles of interest
 Use the coords2pts.py script to generate a new .nav file (will be called [your_nav_file_name]_with_points.nav). Close the current file with *File->Close* then use *Navigator->Read & Open...* to read the newly generated navigator file.
@@ -140,4 +142,3 @@ Automated Imaging and Analysis of Synapses in Freeze-Fracture Replica Samples wi
 *Neuromethods, Vol. 212*, Joachim Lübke and Astrid Rollenhagen (Eds)
 in Press
 
-...
