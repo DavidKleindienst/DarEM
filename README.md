@@ -91,6 +91,8 @@ ensure [pyEM](https://github.com/asarnow/pyem/tree/master) is installed. You wil
 
 ## Usage
 
+These are some quick instructions including screenshots of relevant settings. Please refer to our book chapter linked [below](#citation) for further details and explanations.
+
 ### Acquiring a map
 Use *File -> New Montage...* to acquire an overview image of the whole replica. Example setting that we've used:
 
