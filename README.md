@@ -102,12 +102,12 @@ You should obtain an overview image of your replica such as this.
 
 <img src="screenshots_readme/Overview.png" height="550"/>
 
-Open the navigator panel with *Navigator -> Open*. Your overview image should alread be contained in the list. Click add points and add a point on an easily recognizable structure (we usually use folds or holes of the replica). Find the same structure at the resolution that you would like to use to search for your profiles of interest and click on it to add the green marker. Then apply *Navigator -> Shift to Marker* (select *All items at the registration of the image with m* in the dialogue box) to register the shift in x/y coordinates between the resolution used on the overview image and the resolution used for acquiring the map
+Open the navigator panel with *Navigator -> Open*. Your overview image should alread be contained in the list. If not, make sure the low mag image was saved in a file and open in SerialEM, and click on the "New Map" button in the Navigator panel. Click add points and add a point on an easily recognizable structure (we usually use folds or holes of the replica). Find the same structure at the resolution that you would like to use to search for your profiles of interest and click on it to add the green marker. Then apply *Navigator -> Shift to Marker* (select *All items at the registration of the image with m* in the dialogue box) to register the shift in x/y coordinates between the resolution used on the overview image and the resolution used for acquiring the map.
 
 <img src="screenshots_readme/PointOnLandmark.png" width="750"/><br>
 <img src="screenshots_readme/PointOnLandmarkZoom.png" width="750"/>
 
-In the navigator panel select add polygon and draw a polygon around your area of interest. Save the navigator file (*Navigator -> Save*) in the same folder where you will save your images. Set up a polygon montage (*Navigator -> Montaging & Grids -> Setup Polygon Montage*) using setting similar to the following
+Double-click on the low mag map taken previously from the Navigator list to reload it. Then, select add polygon in the navigator panel  and draw a polygon around your area of interest. Save the navigator file (*Navigator -> Save*) in the same folder where you will save your images. Set up a polygon montage (*Navigator -> Montaging & Grids -> Setup Polygon Montage*) using setting similar to the following
 
 <img src="screenshots_readme/SetupPolygonMontage2.png" height="450"/> <img src="screenshots_readme/SetupPolygonMontage3.png" height="450"/> 
 
