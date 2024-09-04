@@ -142,8 +142,5 @@ Please acquire low-res maps as described [above](#acquiring-a-low-res-map), whic
 ## Citation
 If you've used this software for your research, please cite
 
-David Kleindienst, Tommaso Costanzo, Ryuichi Shigemoto.
-Automated Imaging and Analysis of Synapses in Freeze-Fracture Replica Samples with Deep Learning.
-*Neuromethods, Vol. 212*, Joachim Lübke and Astrid Rollenhagen (Eds)
-in Press
+Kleindienst, D., Costanzo, T., Shigemoto, R. (2024). Automated Imaging and Analysis of Synapses in Freeze-Fracture Replica Samples with Deep Learning. In: Lübke, J.H., Rollenhagen, A. (eds) New Aspects in Analyzing the Synaptic Organization of the Brain. Neuromethods, vol 212. Humana, New York, NY. https://doi.org/10.1007/978-1-0716-4019-7_8
 
