@@ -89,6 +89,9 @@ ensure [pyEM](https://github.com/asarnow/pyem/tree/master) is installed. You wil
    * The default is -24.5, -12.2, 0, 12.2, 24.5
    * Ensure to not take more extreme angles than your microscope setup permits
 
+### Weights for PSD detection
+We've made the weights we trained for PSD detection available. If you would like to use them either to directly for finding PSDs or as starting point for additional training, please download them [here](https://seafile.ist.ac.at/d/264c0e39ecfa4cd5ace5/?p=%2FDareaDarem%2FDarEM) and place them in the appropriate folder under DarEM/models/
+
 ## Usage
 
 These are some quick instructions including screenshots of relevant settings. Please refer to our book chapter linked [below](#citation) for further details and explanations.
