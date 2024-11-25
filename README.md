@@ -9,7 +9,7 @@ Install the following prerequisites
 
  * [CUDA Toolkit 11](https://developer.nvidia.com/cuda-toolkit)
     - Required for training or fast prediction on a GPU. Not necessary for slow prediction on a CPU
- * [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) 
+ * [conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) or [miniforge](https://github.com/conda-forge/miniforge/releases) (a drop-in replacement to conda using only open-source components)
     - Using other ways to create virtual python environements is possible, but our installation instructions are based on conda
  * gcc
     - Run `sudo apt install gcc` in a terminal
