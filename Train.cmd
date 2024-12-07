@@ -1,3 +1,3 @@
 @echo off
-call conda activate Darea
+call conda activate DarEM
 call python Train.py
