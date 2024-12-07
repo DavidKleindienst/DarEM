@@ -20,7 +20,7 @@ Install the following prerequisites
 
 Open a terminal and run
 ```bash
-conda create -n DarEM python==3.9 cudnn
+conda create -n DarEM python==3.9 cudnn=8.2
 conda activate DarEM
 git clone https://github.com/tensorflow/models.git
 cd models/research
