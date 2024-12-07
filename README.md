@@ -11,7 +11,7 @@ Install the following prerequisites
     - Required for training or fast prediction on a GPU. Not necessary for slow prediction on a CPU
  * conda
     - can be installed through [anaconda/miniconda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) or [miniforge](https://github.com/conda-forge/miniforge/releases)
-    - Using other ways to create virtual python environements is possible, but our installation instructions are based on conda
+    - Using other ways to create virtual python environments is possible, but our installation instructions are based on conda
  * gcc
     - Run `sudo apt install gcc` in a terminal
  * [Protobuf V3.19](https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4)
@@ -41,7 +41,8 @@ Ensure the following prerequisites are installed:
  * [CUDA Toolkit 11](https://developer.nvidia.com/cuda-11-8-0-download-archive)
     - Required for training or fast prediction on a GPU. Not necessary for slow prediction on a CPU
  * conda
-    - can be installed through [anaconda/miniconda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) or [miniforge](https://github.com/conda-forge/miniforge/releases)    - Using other ways to create virtual python environements is possible, but our installation instructions are based on conda/miniforge
+    - can be installed through [anaconda/miniconda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) or [miniforge](https://github.com/conda-forge/miniforge/releases)
+   - Using other ways to create virtual python environments is possible, but our installation instructions are based on conda/miniforge
  * [Protobuf V3.19](https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4)
     - Download `protoc-3.19.4-win64.zip` on 64-bit Windows or `protoc-3.19.4-win32.zip` on 32-bit Windows
     - Unzip the downloaded file and add the path to /bin to your PATH environment variable
