@@ -318,7 +318,7 @@ class TrainingWindow(SubWindow):
             edit.setText(str(self.num_steps))
     
     def selectTfrecord(self):
-     filename = QFileDialog.getOpenFileNames(self,'Select File', filter='Tfrecord dataset (*.tfrecord)')[0][0]
+     filename = QFileDialog.getOpenFileNames(self,'Select File', filter='Tfrecord dataset (*.tfrecord);;All Files (*.*)')[0][0]
      if filename:
         self.sel_tfRec.setText(processTfRecordFilename(filename))
         #If suffix XXXXX-of-XXXXX exists
