@@ -318,34 +318,38 @@ class TrainingWindow(SubWindow):
             edit.setText(str(self.num_steps))
     
     def selectTfrecord(self):
-     filename = QFileDialog.getOpenFileNames(self,'Select File', filter='Tfrecord dataset (*.tfrecord);;All Files (*.*)')[0][0]
-     if filename:
-        self.sel_tfRec.setText(processTfRecordFilename(filename))
-        #If suffix XXXXX-of-XXXXX exists
-        #Exchange first number by ?????
-        p=re.compile('.tfrecord-\d+-of-\d+')
-        m=p.search(filename)
-        if m and len(filename)==m.span(0)[1]: 
-            nr_digits = int((m.span(0)[1] - m.span(0)[0] - len('.tfrecord--of-'))/2)
-            number_index = -2*nr_digits-len('-of-')
-            filename = filename[:number_index] + '?' * nr_digits + filename[number_index+nr_digits:]
-            
-        if '_train.tfrecord' in filename:
-            self.tfRecord = filename
-            self.tfRecordEval = filename.replace('_train.tfrecord', '_eval.tfrecord')
-            label_map=filename.replace('_train.tfrecord', '.pbtxt')
-            
-        elif '_eval.tfrecord' in filename:
-            self.tfRecordEval = filename
-            self.tfRecord = filename.replace('_eval.tfrecord', '_train.tfrecord')
-            label_map=filename.replace('_eval.tfrecord', '.pbtxt')
-        else:
-            self.tfRecord = filename
-            self.tfRecordEval = ''
-            label_map=filename.replace('.tfrecord', '.pbtxt')
-         
-        if os.path.isfile(label_map):
-            self.label_map = label_map
+        files = QFileDialog.getOpenFileNames(self, 'Select File', filter='Tfrecord dataset (*.tfrecord);;All Files (*.*)')[0]
+        if not files:
+            return   # user cancelled
+        filename = files[0]
+
+        if filename:
+            self.sel_tfRec.setText(processTfRecordFilename(filename))
+            #If suffix XXXXX-of-XXXXX exists
+            #Exchange first number by ?????
+            p=re.compile('.tfrecord-\d+-of-\d+')
+            m=p.search(filename)
+            if m and len(filename)==m.span(0)[1]: 
+                nr_digits = int((m.span(0)[1] - m.span(0)[0] - len('.tfrecord--of-'))/2)
+                number_index = -2*nr_digits-len('-of-')
+                filename = filename[:number_index] + '?' * nr_digits + filename[number_index+nr_digits:]
+                
+            if '_train.tfrecord' in filename:
+                self.tfRecord = filename
+                self.tfRecordEval = filename.replace('_train.tfrecord', '_eval.tfrecord')
+                label_map=filename.replace('_train.tfrecord', '.pbtxt')
+                
+            elif '_eval.tfrecord' in filename:
+                self.tfRecordEval = filename
+                self.tfRecord = filename.replace('_eval.tfrecord', '_train.tfrecord')
+                label_map=filename.replace('_eval.tfrecord', '.pbtxt')
+            else:
+                self.tfRecord = filename
+                self.tfRecordEval = ''
+                label_map=filename.replace('.tfrecord', '.pbtxt')
+             
+            if os.path.isfile(label_map):
+                self.label_map = label_map
             
 
     def startTraining(self):
