@@ -3,3 +3,4 @@ tf-models-official==2.5.1
 keras==2.5rc0
 pyqt5==5.12.3
 tensorflow-io==0.19
+pillow==9.5.0
