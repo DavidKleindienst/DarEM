@@ -93,7 +93,7 @@ def downscaleImage(targetSize, image, mask=None, coordinates=None):
         return image
 
 def splitImage(targetSize, image, overlap=0, coordinates=None, classes=None):
-    def _return(image,coordinates):
+    def _return(image, coordinates, classes):
         if coordinates is None:
             return [image]
         elif classes is None:
